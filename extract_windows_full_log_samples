@@ -38,9 +38,8 @@ if [[ ! `which jq` ]]; then
         echo "   sudo snap install jq"
         echo ""
 fi
-
 if [[ "$TYPE" == "rule" ]]; then
         grep --line-buffered -F '"'$ID'"' /var/ossec/logs/archives/archives.json | jq --unbuffered -c 'select ( .rule.id == "'$ID'" ) | .full_log' | sed -u 's/\\"/"/g;s/\\\\/\\/g;s/^"//;s/"$//'
-else
+elif [[ "$TYPE" == "event" ]]; then
         grep --line-buffered -F '"'$ID'"' /var/ossec/logs/archives/archives.json | jq --unbuffered -c 'select ( .data.win.system.eventID == "'$ID'" ) | .full_log' | sed -u 's/\\"/"/g;s/\\\\/\\/g;s/^"//;s/"$//'
 fi
