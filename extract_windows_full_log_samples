@@ -9,8 +9,10 @@
 # https://github.com/BlueWolfNinja/wazuh-resources
 #
 # This script extracts unescaped JSON full_log field samples from the current Wazuh manager archives.json file, 
-# of a specific Windows EventID or Wazuh alert rule ID. 
+# of a specific Windows EventID or Wazuh alert rule ID, usually for the purpose of doing a Wazuh logtest on such samples, 
+# by using the companion script wazuh-logtest-eventchannel also available from the above Github repo.  
 #
+
 
 TYPE=$1
 ID=$2
