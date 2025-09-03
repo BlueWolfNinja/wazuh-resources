@@ -13,7 +13,6 @@
 # by using the companion script wazuh-logtest-eventchannel also available from the above Github repo.  
 #
 
-
 TYPE=$1
 ID=$2
 if [[ "$ID" == "" || ( "$TYPE" != "rule" && "$TYPE" != "event" ) ]]; then
