@@ -2,7 +2,7 @@
 
 Welcome to the BlueWolfNinja ***wazuh-resources*** Github repo.
 
-Here I maintain the authoritative versions of scripts and ruleset customizations I have authored to solve problems and meet needs I have faced while using the Wazuh SIEM solution over the past many years. 
+Here I maintain the authoritative versions of scripts and ruleset customizations I have authored to solve problems and meet needs I have faced while using the Wazuh SIEM solution over the past many years as a corporate trainer for Wazuh, Inc and a founder/manager of a small MSSP. 
 
 Some of these resources I have co-authored with Ken Fredericksen, my chief partner in all things Wazuh.  You're the best, Ken!
 
