@@ -1,7 +1,13 @@
 #!/bin/bash
 
 #
-# extract_windows_full_log_sample
+# extract_windows_full_log_samples
+# by Kevin Branch (@BlueWolfNinja)
+# https://bluewolfninja.com
+# 
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
 # This script extracts unescaped JSON full_log field samples from the current Wazuh manager archives.json file, 
 # of a specific Windows EventID or Wazuh alert rule ID. 
 #
@@ -13,13 +19,13 @@ if [[ "$ID" == "" || ( "$TYPE" != "rule" && "$TYPE" != "event" ) ]]; then
         echo "Specify a type and ID number to search the current archives.json file for unescaped full_log JSON samples of a Wazuh rule ID or Windows EventID."
         echo ""
         echo "For example:"
-        echo "   extract_windows_full_log_sample rule 61615"
-        echo "   extract_windows_full_log_sample event 13"
+        echo "   extract_windows_full_log_samples rule 61615"
+        echo "   extract_windows_full_log_samples event 13"
         echo ""
         echo "The results can be fed to the wazuh-logtest-eventchannel script."
         echo ""
         echo "For example, to extract the first archives.json sample of an alert on Wazuh Windows rule 61615 and do a verbose Wazuh logtest on it, run:"
-        echo "   extract_windows_full_log_sample rule 61615 | head -n1 | wazuh-logtest-eventchannel -v"
+        echo "   extract_windows_full_log_samples rule 61615 | head -n1 | wazuh-logtest-eventchannel -v"
         echo ""
         exit
 fi
