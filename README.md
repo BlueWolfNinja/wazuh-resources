@@ -1,4 +1,4 @@
-Welcome to the BlueWolfNinja wazuh-resources Github repo.
+Welcome to the BlueWolfNinja ***wazuh-resources*** Github repo.
 
 Here I maintain the authoritative versions of scripts and ruleset customizations I have authored to solve problems and meet needs I have faced while using the Wazuh SIEM solution over the past many years. 
 
