@@ -10,7 +10,7 @@
 #
 # At this time, Wazuh's native logtest facility has no direct support for testing Windows event samples.
 # This wrapper of the wazuh-logtest-legacy CLI program can be fed unescaped JSON full_log field samples of Windows events from a Wazuh manager's archives.json file.
-# One way to acquire such samples is to use the extract_windows_full_log_sample companion script to wazuh-logtest-eventchannel, available from the same Github repo.
+# One way to acquire such samples is to use the extract_windows_full_log_samples companion script to wazuh-logtest-eventchannel, available from the same Github repo.
 #
 
 sed 's/<rule_dir>ruleset\/rules<\/rule_dir>/<rule_dir>ruleset\/rules-logtest<\/rule_dir>/' /var/ossec/etc/ossec.conf > /var/ossec/etc/ossec-logtest.conf
