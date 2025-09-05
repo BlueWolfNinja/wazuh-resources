@@ -1,4 +1,20 @@
 #!/bin/bash
+
+#
+# deploy-wazuh-windows-logtest-helper (deployment script for the Blue Wolf Ninja Wazuh Windows Logtest helper suite)
+# by Kevin Branch (@BlueWolfNinja)
+# https://bluewolfninja.com
+# 
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Explained in this blog article
+# https://bluewolfninja.com/simulating-wazuh-analysis-of-sample-windows-events
+#
+# This downloads the scripts that comprise the Blue Wolf Ninja Wazuh Windows Logtest helper suite into /usr/local/bin, makes them executable,
+# and invites the installation of the prerequisite "jq" package if not already present.
+#
+
 echo ""
 echo "Deploying the Blue Wolf Ninja Wazuh Windows Logtest helper suite of scripts to /usr/local/bin/"
 echo ""
