@@ -1,22 +1,23 @@
 #!/bin/bash
 
 #
-# extract_windows_full_log_samples
+# extract_windows_full_log_samples (part of the Blue Wolf Ninja Wazuh Windows Logtest helper suite
 # by Kevin Branch (@BlueWolfNinja)
 # https://bluewolfninja.com
 # 
 # Authoritatively available from:
 # https://github.com/BlueWolfNinja/wazuh-resources
 #
+# Explained in this blog article
+# https://bluewolfninja.com/simulating-wazuh-analysis-of-sample-windows-events
+#
 # This script extracts unescaped JSON full_log field samples from the current Wazuh manager archives.json file, 
 # of a specific Windows EventID or Wazuh alert rule ID, usually for the purpose of doing a Wazuh logtest on such samples, 
-# by using the companion script wazuh-logtest-eventchannel also available from the above Github repo.  
+# by using the companion script "wazuh-logtest-eventchanne" also available from the above Github repo.  
 #
-# Required: 
-# Make your Wazuh manager populate archives.json with all events, not just alerts, and to include the full_log field normally suppressed in Wazuh alert records.
-# To do this, set the value in the <logall_json> line of /var/ossec/etc/ossec.conf to "yes" instead of the default "no".  Then restart the wazuh-manager service.
-# Once examples of the Windows events of interest have made it to archives.json, make sure to set the <logall_json> setting back to "no" and to restart the 
-# wazuh-manager service again, so that archives.json does not grow to the point of exhausting available disk space.  It grows much more quickly than alerts.json.
+# To have anything to extract, you must first make your Wazuh manager write to archives.json with all events, not just alerts, and to include the full_log 
+# field normally suppressed in Wazuh alert records.  Do this by running the companion script "enable-wazuh-archives" and after enough archives.json records 
+# have accumulated, disable writing to archives.json by running the companion script "disable-wazuh-archives".        
 #
 TYPE=$1
 ID=$2
