@@ -1,12 +1,15 @@
 #!/bin/bash
 
 #
-# wazuh-logtest-eventchannel
+# wazuh-logtest-eventchannel (part of the Blue Wolf Ninja Wazuh Windows Logtest helper suite)
 # by Kevin Branch (@BlueWolfNinja)
 # https://bluewolfninja.com
 # 
 # Authoritatively available from:
 # https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Explained in this blog article
+# https://bluewolfninja.com/simulating-wazuh-analysis-of-sample-windows-events
 #
 # At this time, Wazuh's native logtest facility has no direct support for testing Windows event samples.
 # This wrapper of the wazuh-logtest-legacy CLI program can be fed unescaped JSON full_log field samples of Windows events from a Wazuh manager's archives.json file.
