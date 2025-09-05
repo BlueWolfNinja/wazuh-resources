@@ -1,3 +1,19 @@
 #!/bin/bash
+
+#
+# disable-wazuh-archives (part of the Blue Wolf Ninja Wazuh Windows Logtest helper suite)
+# by Kevin Branch (@BlueWolfNinja)
+# https://bluewolfninja.com
+# 
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Explained in this blog article
+# https://bluewolfninja.com/simulating-wazuh-analysis-of-sample-windows-events
+#
+# This script sets the <logall_json> value in ossec.conf on Wazuh manager to no and then restarts the wazuh-manager service, to make the service
+# cease writing unadbridged log events to archives.json.
+#
+
 sudo sed -i 's/   <logall_json>.*/   <logall_json>no<\/logall_json>/' /var/ossec/etc/ossec.conf
 sudo systemctl restart wazuh-manager
