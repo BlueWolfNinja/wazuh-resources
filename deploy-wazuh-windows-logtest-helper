@@ -1,0 +1,26 @@
+#!/bin/bash
+echo ""
+echo "Deploying the Blue Wolf Ninja Wazuh Windows Logtest helper suite of scripts to /usr/local/bin/"
+echo ""
+echo "   extract_windows_full_log_samples"
+echo "   wazuh-logtest-eventchannele"
+echo "   enable-wazuh-archives"
+echo "   disable-wazuh-archives"
+echo ""
+curl -sS https://raw.githubusercontent.com/BlueWolfNinja/wazuh-resources/refs/heads/main/extract_windows_full_log_samples > /usr/local/bin/extract_windows_full_log_samples
+curl -sS https://raw.githubusercontent.com/BlueWolfNinja/wazuh-resources/refs/heads/main/wazuh-logtest-eventchannel > /usr/local/bin/wazuh-logtest-eventchannel
+curl -sS https://raw.githubusercontent.com/BlueWolfNinja/wazuh-resources/refs/heads/main/enable-wazuh-archives > /usr/local/bin/enable-wazuh-archives
+curl -sS https://raw.githubusercontent.com/BlueWolfNinja/wazuh-resources/refs/heads/main/disable-wazuh-archives > /usr/local/bin/disable-wazuh-archives
+chmod +x /usr/local/bin/extract_windows_full_log_samples
+chmod +x /usr/local/bin/wazuh-logtest-eventchannel
+chmod +x /usr/local/bin/enable-wazuh-archives
+chmod +x /usr/local/bin/disable-wazuh-archives
+if [[ ! `which jq` ]]; then
+        echo "The jq tool is required by the extract_windows_full_log_sample script.  One of these command should install it, depending on your Linux distro:"
+        echo ""
+        echo "   sudo apt install jq"
+        echo "   sudo yum install jq"
+        echo "   sudo dnf install jq"
+        echo "   sudo snap install jq"
+        echo ""
+fi
