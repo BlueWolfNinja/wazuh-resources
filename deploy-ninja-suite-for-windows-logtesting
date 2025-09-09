@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# deploy-wazuh-windows-logtest-helper (deployment script for the Blue Wolf Ninja Wazuh Windows Logtest helper suite)
+# deploy-ninja-suite-for-windows-logtesting (deployment script for the Blue Wolf Ninja Suite for Windows Log Testing in Wazuh)
 # by Kevin Branch (@BlueWolfNinja)
 # https://bluewolfninja.com
 # 
@@ -11,12 +11,12 @@
 # Explained in this blog article
 # https://bluewolfninja.com/simulating-wazuh-analysis-of-sample-windows-events
 #
-# This downloads the scripts that comprise the Blue Wolf Ninja Wazuh Windows Logtest helper suite into /usr/local/bin, makes them executable,
+# This downloads the scripts that comprise the Blue Wolf Ninja Suite for Windows Log Testing in Wazuh into /usr/local/bin, makes them executable,
 # and invites the installation of the prerequisite "jq" package if not already present.
 #
 
 echo ""
-echo "Deploying the Blue Wolf Ninja Wazuh Windows Logtest helper suite of scripts to /usr/local/bin/"
+echo "Deploying the Blue Wolf Ninja Suite for Windows Log Testing in Wazuh to /usr/local/bin/"
 echo ""
 echo "   extract_windows_full_log_samples"
 echo "   wazuh-logtest-eventchannele"
@@ -32,7 +32,7 @@ chmod +x /usr/local/bin/wazuh-logtest-eventchannel
 chmod +x /usr/local/bin/enable-wazuh-archives
 chmod +x /usr/local/bin/disable-wazuh-archives
 if [[ ! `which jq` ]]; then
-        echo "The jq tool is required by the extract_windows_full_log_sample script.  One of these command should install it, depending on your Linux distro:"
+        echo "The jq tool is required by the extract_windows_full_log_samples script.  One of these command should install it, depending on your Linux distro:"
         echo ""
         echo "   sudo apt install jq"
         echo "   sudo yum install jq"
