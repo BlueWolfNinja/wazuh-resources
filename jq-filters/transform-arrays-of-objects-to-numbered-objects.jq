@@ -1,7 +1,8 @@
 #
 # transform-arrays-of-objects-to-numbered-objects.jq
-# used by Kevin Branch (@BlueWolfNinja) to transform arrays of objects found in a JSON stream into objects containining numbered subobjects.
-# It recurses through JSON records searching for arrays of objects, and converts the array into an object containing zero-padded numbered keys 
+#
+# Generated with assistance of ChatGPT by Kevin Branch (@BlueWolfNinja) to transform arrays of objects found in a JSON stream into objects containining numbered 
+# subobjects.  It recurses through JSON records searching for arrays of objects, and converts the array into an object containing zero-padded numbered keys 
 # which each contain one of the original objects from the array.  
 # This is particularly helpful when feeding JSON into a Wazuh SIEM, which does not handle arrays of objects at all cleanly.
 # This may be useful outside of the Wazuh context as well.
