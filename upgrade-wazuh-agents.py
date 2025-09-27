@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
 
+#
 # upgrade-wazuh-agents.py
+# by Kevin Branch (@BlueWolfNinja)
+# https://bluewolfninja.com
+# 
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Explained in this blog article
+# https://bluewolfninja.com/---TBD---
+#
 # This script checks for outdated Wazuh agents, initiates upgrades,
-# monitors upgrade progress, logs results, and refreshes the agents index in Elasticsearch.
+# monitors upgrade progress, logs results, and refreshes the agents index in Wazuh Indexer
+#
 
 import os
 import time
@@ -175,7 +186,7 @@ def main():
 				f.write(json.dumps(a) + "\n")
 		f.write("\n")
 
-	# Post bulk to Elasticsearch or Wazuh index (example, requires credentials)
+	# Post bulk to Wazuh index (example, requires credentials)
 	# requests.post(..., data=tmpfile_path.read_bytes(), ...)
 
 	tmpfile_path.unlink()
