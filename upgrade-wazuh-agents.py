@@ -186,8 +186,22 @@ def main():
 				f.write(json.dumps(a) + "\n")
 		f.write("\n")
 
-	# Post bulk to Wazuh index (example, requires credentials)
-	# requests.post(..., data=tmpfile_path.read_bytes(), ...)
+	# Push updated agents to Elasticsearch
+	requests.post(
+		f"{creds['WIPROTO']}://{creds['WIHOST']}:{creds['WIPORT']}/agents/_delete_by_query",
+		auth=(creds["WIUSER"], creds["WIPASS"]),
+		headers={"Content-Type": "application/json"},
+		json={"query": {"match_all": {}}},
+		verify=False,
+	)
+
+	requests.post(
+		f"{creds['WIPROTO']}://{creds['WIHOST']}:{creds['WIPORT']}/agents/_bulk",
+		auth=(creds["WIUSER"], creds["WIPASS"]),
+		headers={"Content-Type": "application/json"},
+		data=tmpfile.read_bytes(),
+		verify=False,
+	)
 
 	tmpfile_path.unlink()
 	print("Upgrade cycle complete. Agents index refreshed.")
