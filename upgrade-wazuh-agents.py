@@ -239,6 +239,7 @@ def upgrade_agents(agents, creds, token, log_file):
 
 	print("Agent upgrade attempts complete")
 
+
 def refresh_agents_stats_index(os_client, target_version):
 	print("Refreshing bwn-states-agent-version-stats...")
 
