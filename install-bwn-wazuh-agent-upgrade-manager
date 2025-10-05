@@ -43,8 +43,8 @@ install_venv_package() {
   echo "⚙️ Installing python3-venv or equivalent..."
   case "$DISTRO" in
     ubuntu|debian|pop|linuxmint)
-      apt update -y
-      apt install -y python3-venv
+      DEBIAN_FRONTEND=noninteractive apt update -y
+      DEBIAN_FRONTEND=noninteractive apt install -y python3-venv
       ;;
     fedora|rhel|centos|rocky|almalinux)
       dnf install -y python3-virtualenv python3-pip || yum install -y python3-virtualenv python3-pip
