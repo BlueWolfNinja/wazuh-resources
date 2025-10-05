@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/opt/bwn-wazuh-agent-upgrade-manager/venv/bin/python3
 #
 # bwn-wazuh-agent-upgrade-manager.py
 # by Kevin Branch (@BlueWolfNinja)
