@@ -13,8 +13,6 @@
 # curl https://raw.githubusercontent.com/BlueWolfNinja/wazuh-resources/refs/heads/main/bwn-wazuh-agent-upgrade-manager.py > ./upgrade-wazuh-agents.py
 #
 
-set -e
-
 VENV_DIR="venv"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
@@ -145,5 +143,3 @@ echo "⬆️  Upgrading pip..."
 echo "📦 Installing pip packages: ${PACKAGES[*]}"
 "$PIP_PATH" install "${PACKAGES[@]}"
 
-echo "✅ Installation complete."
-echo ""
