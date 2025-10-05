@@ -7,7 +7,7 @@
 # Confirm python3 is present.
 # Move the bwn-wazuh-agent-upgrade-manager.py script from the current working directory to /opt/bwn-wazuh-agent-upgrade-manager/bin/ and make it executable.
 # Create a Python virtual environment with needed pip dependencies, under /opt/bwn-wazuh-agent-upgrade-manager/bin/
-# Symlink /usr/local/bwn-wazuh-agent-upgrade-manager to /opt/bwn-wazuh-agent-upgrade-manager/bin/bwn-wazuh-agent-upgrade-manager.py
+# Symlink /usr/local/bwn-wazuh-agent-upgrade-manager.py to /opt/bwn-wazuh-agent-upgrade-manager/bin/bwn-wazuh-agent-upgrade-manager.py
 #
 # Before running this, download the latest version of bwn-wazuh-agent-upgrade-manager.py
 # curl https://raw.githubusercontent.com/BlueWolfNinja/wazuh-resources/refs/heads/main/bwn-wazuh-agent-upgrade-manager.py > ./upgrade-wazuh-agents.py
@@ -128,8 +128,8 @@ rm /opt/bwn-wazuh-agent-upgrade-manager -rf 2> /dev/null
 mkdir -p /opt/bwn-wazuh-agent-upgrade-manager/bin/
 mv ./bwn-wazuh-agent-upgrade-manager.py /opt/bwn-wazuh-agent-upgrade-manager/bin/
 chmod 744 /opt/bwn-wazuh-agent-upgrade-manager/bin/bwn-wazuh-agent-upgrade-manager.py
-rm /usr/local/bin/bwn-wazuh-agent-upgrade-manager 2> /dev/null
-ln -s /opt/bwn-wazuh-agent-upgrade-manager/bin/bwn-wazuh-agent-upgrade-manager.py /usr/local/bin/bwn-wazuh-agent-upgrade-manager
+rm /usr/local/bin/bwn-wazuh-agent-upgrade-manager.py 2> /dev/null
+ln -s /opt/bwn-wazuh-agent-upgrade-manager/bin/bwn-wazuh-agent-upgrade-manager.py /usr/local/bin/bwn-wazuh-agent-upgrade-manager.py
 
 # --- Create and configure virtual environment ---
 cd /opt/bwn-wazuh-agent-upgrade-manager/
@@ -145,3 +145,5 @@ echo "⬆️  Upgrading pip..."
 echo "📦 Installing pip packages: ${PACKAGES[*]}"
 "$PIP_PATH" install "${PACKAGES[@]}"
 
+echo "✅ Installation complete."
+echo ""
