@@ -26,8 +26,7 @@ import warnings
 import jq
 import argparse
 from datetime import datetime, timezone, timedelta
-from dateutil import parser  # pip install python-dateutil
-
+from dateutil import parser
 from opensearchpy import OpenSearch, helpers
 
 # Suppress InsecureRequestWarning from urllib3
