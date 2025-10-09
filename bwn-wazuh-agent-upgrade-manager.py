@@ -1,6 +1,7 @@
 #!/opt/bwn-wazuh-agent-upgrade-manager/venv/bin/python3
+
 #
-# bwn-wazuh-agent-upgrade-manager.py
+# bwn-wazuh-agent-upgrade-manager
 # by Kevin Branch (@BlueWolfNinja)
 # https://bluewolfninja.com
 #
@@ -77,16 +78,124 @@ def get_token(creds):
 	return resp.text.strip()
 
 
-def check_upgrading_agents(agents, creds, log_file):
+def load_architecture_dictionary(os_client, architecture):
+	"""
+	Populate the given 'architecture' dictionary by reading from OpenSearch.
+	Uses index pattern 'wazuh-states-inventory-system-*' and only requests agent.id and host.architecture.
+	If no indexes exist, prints a warning and returns without modifying the dictionary.
+	"""
+	index_pattern = "wazuh-states-inventory-system-*"
+
+	try:
+		# Check if any indexes exist matching the pattern
+		if not os_client.indices.exists(index=index_pattern):
+			print(
+				"No system inventory indexes found. "
+				"Wazuh version is older than 4.13.0. "
+				"No architecture information will be collected."
+			)
+			return
+
+		# Query the indexes
+		query = {
+			"_source": ["agent.id", "host.architecture"],
+			"size": 10000,  # fetch up to 10k docs
+			"query": {"match_all": {}}
+		}
+
+		response = os_client.search(index=index_pattern, body=query)
+		hits = response.get("hits", {}).get("hits", [])
+
+		for hit in hits:
+			source = hit.get("_source", {})
+			agent_id = source.get("agent", {}).get("id")
+			arch_value = source.get("host", {}).get("architecture")
+
+			if agent_id and arch_value:
+				architecture[agent_id] = {"arch": arch_value}
+
+		print(f"Loaded {len(architecture)} entries from '{index_pattern}'")
+
+	except Exception as e:
+		print(f"Error loading architecture dictionary: {e}")
+
+	# print(json.dumps(architecture, indent=2))
+
+def upgrade_agents(agents, architecture, creds, token, log_file):
+	if not agents:
+		print("No candidates for agent upgrades.")
+		sys.exit(0)
+
+	print("Agents to attempt to upgrade:")
+	for a in agents.values():
+		a_pretty = a.copy()
+		for key in ("timestamp", "target_version", "os.platform"):
+			a_pretty.pop(key, None)
+		print(json.dumps(a_pretty, indent=2))
+
+	# Initiate upgrade
+	agent_ids_csv = ",".join(agents.keys())
+	url_upgrade = f"https://{creds['WAPIHOST']}:55000/agents/upgrade?agents_list={agent_ids_csv}"
+	print(f"Initiating upgrade tasks for agents: {url_upgrade}")
+	try:
+		resp = requests.put(url_upgrade, headers={"Authorization": f"Bearer {token}"}, verify=False)
+		resp.raise_for_status()
+	except requests.RequestException as e:
+		print(f"Error initiating agent upgrades: {e}")
+		return
+
+	# Monitor upgrades
+	while agents:
+		print(f"Pausing for {sleep1} seconds before checking on agent upgrade progress...")
+		time.sleep(sleep1)
+		check_upgrading_agents(agents, architecture, creds, log_file)
+		if not agents:
+			break
+		url_check = f"https://{creds['WAPIHOST']}:55000/agents/upgrade_result"
+		try:
+			resp_check = requests.get(url_check, headers={"Authorization": f"Bearer {token}"}, verify=False)
+			resp_check.raise_for_status()
+		except requests.RequestException as e:
+			print(f"Warning: Could not fetch upgrade results: {e}")
+			time.sleep(sleep2)
+			continue
+		updating_agents = jq.all('.data.affected_items[] | select(.command == "upgrade") | select(.status == "Updating")', resp_check.json())
+		in_queue_agents = jq.all('.data.affected_items[] | select(.command == "upgrade") | select(.status == "In queue")', resp_check.json())
+		if not updating_agents and not in_queue_agents:
+			print(f"No agents are reporting they are in queue or updating, though one or more final agents may be restarting. Waiting for {sleep2} more seconds...")
+			time.sleep(sleep2)
+			check_upgrading_agents(agents, architecture, creds, log_file)
+			break
+
+	# Classify lingering agents as 'Absent' and log about them as well, leaving no remaining agents in the array.
+	for agent_id in list(agents.keys()):
+		agent_name = agents[agent_id].get("name", "unknown")
+		print(f"Agent {agent_id} ({agent_name}) absent. Logging about that and skipping the agent...")
+		full_results = {**agents[agent_id]}
+		full_results["status"] = "Absent"
+		full_results["result"] = "failure"
+		# enrich the upgrade attempt record with the architecture looked up from wazuh-states-inventory-system-*
+		full_results["arch"] = architecture[agent_id].get("arch", "unknown")
+		for key in ["agent", "create_time", "task_id", "module", "command", "message"]:
+			full_results.pop(key, None)
+		with open(log_file, "a") as f:
+			f.write(json.dumps(full_results) + "\n")
+		del agents[agent_id]
+
+	print("Agent upgrade attempts complete")
+
+
+def check_upgrading_agents(agents, architecture, creds, log_file):
 	token = get_token(creds)
 	for agent_id in list(agents.keys()):
-		print(f"Checking upgrade task status for Agent ID: {agent_id}")
+		agent_name = agents[agent_id].get("name", "unknown")
+		print(f"Checking upgrade task status for Agent {agent_id} ({agent_name})")
 		url = f"https://{creds['WAPIHOST']}:55000/agents/upgrade_result?agents_list={agent_id}"
 		try:
 			resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, verify=False)
 			resp.raise_for_status()
 		except requests.RequestException as e:
-			print(f"Warning: Could not fetch upgrade status for agent {agent_id}: {e}")
+			print(f"  Warning: Could not fetch upgrade status for this agent: {e}")
 			continue
 
 		data = resp.json()
@@ -95,21 +204,30 @@ def check_upgrading_agents(agents, creds, log_file):
 
 		if disposition:
 			status = disposition.get("status")
-			if status != "Updating":
+			if status != "Updating" and status != "In queue":
+				if status == "Updated":
+					result = "success"
+				else:
+					result = "failure"
 				print(f'  Final result found - merging and logging details. Status: "{status}".')
 				full_results = {**agents[agent_id], **disposition}
-				for key in ["create_time", "message", "task_id", "agent", "module"]:
+				full_results["result"] = result
+				# enrich the upgrade attempt record with the architecture looked up from wazuh-states-inventory-system-*
+				full_results["arch"] = architecture[agent_id].get("arch", "unknown")
+				for key in ["agent", "create_time", "task_id", "module", "command", "message"]:
 					full_results.pop(key, None)
 				with open(log_file, "a") as f:
 					f.write(json.dumps(full_results) + "\n")
 				del agents[agent_id]
-			else:
-				print("  Agent is still updating.")
+			elif status == "Updating":
+				print("  Agent is updating now.")
+			elif status == "In queue":
+				print("  Agent is waiting in the upgrade queue.")
 		else:
 			print("  No results yet")
 
 
-def refresh_agents_index(os_client, creds):
+def refresh_agents_index(os_client, architecture, creds):
 	token = get_token(creds)
 	
 	# Delete the bwn-states-agents index if it exists
@@ -177,69 +295,19 @@ def refresh_agents_index(os_client, creds):
 			if a.get("version", "").startswith("Wazuh v"):
 				a["version"] = a["version"].replace("Wazuh v", "", 1)
 			actions.append({"_index": "bwn-states-agents", "_source": a})
-	
+			# If this agent has not os.arch set (like Windows hosts) then set the arch based on the wazuh-states-inventory-system-* lookup array.
+			# This way, with pre 4.13 managers that have no such lookup table, we can at least preserve the inconsistent os.arch supplied by GET /agents.
+			if "os" not in a:
+				a["os"] = {}
+			if "arch" not in a["os"]:				
+				a["os"]["arch"] = architecture.get(a["id"], {}).get("arch", "unknown")
 	# Bulk push the documents to OpenSearch directly
 	if actions:
 		helpers.bulk(os_client, actions)
 
 	print("Refresh of bwn-states-agents index and template complete.")
 
-
-def upgrade_agents(agents, creds, token, log_file):
-	if not agents:
-		print("No candidates for agent upgrades.")
-		sys.exit(0)
-
-	print("Agents to attempt to upgrade:")
-	for a in agents.values():
-		print(json.dumps(a, indent=2))
-
-	# Initiate upgrade
-	agent_ids_csv = ",".join(agents.keys())
-	url_upgrade = f"https://{creds['WAPIHOST']}:55000/agents/upgrade?agents_list={agent_ids_csv}"
-	print(f"Initiating upgrade tasks for agents: {url_upgrade}")
-	try:
-		resp = requests.put(url_upgrade, headers={"Authorization": f"Bearer {token}"}, verify=False)
-		resp.raise_for_status()
-	except requests.RequestException as e:
-		print(f"Error initiating agent upgrades: {e}")
-		return
-
-	# Monitor upgrades
-	while agents:
-		print(f"Pausing for {sleep1} seconds before checking on agent upgrade progress...")
-		time.sleep(sleep1)
-		check_upgrading_agents(agents, creds, log_file)
-		if not agents:
-			break
-		url_check = f"https://{creds['WAPIHOST']}:55000/agents/upgrade_result"
-		try:
-			resp_check = requests.get(url_check, headers={"Authorization": f"Bearer {token}"}, verify=False)
-			resp_check.raise_for_status()
-		except requests.RequestException as e:
-			print(f"Warning: Could not fetch upgrade results: {e}")
-			time.sleep(sleep2)
-			continue
-		updating_agents = jq.all('.data.affected_items[] | select(.command == "upgrade") | select(.status == "Updating")', resp_check.json())
-		if not updating_agents:
-			print(f"No agents are reporting they are updating, though one or more final agents may be restarting. Waiting for {sleep2} more seconds...")
-			time.sleep(sleep2)
-			check_upgrading_agents(agents, creds, log_file)
-			break
-
-	# Classify lingering agents as 'Absent' and log about them as well, leaving no remaining agents in the array.
-	for agent_id in list(agents.keys()):
-		print(f"Agent {agent_id} absent. Logging.")
-		full_results = {**agents[agent_id], "status": "Absent"}
-		for key in ["create_time", "message", "task_id", "agent", "module"]:
-			full_results.pop(key, None)
-		with open(log_file, "a") as f:
-			f.write(json.dumps(full_results) + "\n")
-		del agents[agent_id]
-
-	print("Agent upgrade attempts complete")
-
-
+	
 def refresh_agents_stats_index(os_client, target_version):
 	print("Refreshing bwn-states-agent-version-stats...")
 
@@ -367,6 +435,18 @@ def main():
 	creds = load_auth(args.config)
 	token = get_token(creds)
 
+	# Connect to Wazuh Indexer for stateful index and template refresh purposes
+	os_client = OpenSearch(
+		hosts=[{"host": creds["WIHOST"], "port": int(creds["WIPORT"])}],
+		http_auth=(creds["WIUSER"], creds["WIPASS"]),
+		scheme="https",
+		verify_certs=False
+	)
+
+	# Create and populate an architecture dictionary keyed by agent.id with an "arch" value from host.architecture in wazuh-states-inventory-system-*
+	architecture = {}
+	load_architecture_dictionary(os_client, architecture)
+
 	# Find target Wazuh version
 	target_version = None
 	wazuh_info = os.popen("/var/ossec/bin/wazuh-control info").read()
@@ -401,20 +481,12 @@ def main():
 
 	# Proceed to initiate and track agent upgrades unless -r/--refresh was specified
 	if not args.refresh: 
-		upgrade_agents(agents, creds, token, log_file)
+		upgrade_agents(agents, architecture, creds, token, log_file)
 	else:
 		print("Refreshing stateful indexes without any upgrading of agents...")
 		
-	# Connect to Wazuh Indexer for stateful index and template refresh purposes
-	os_client = OpenSearch(
-		hosts=[{"host": creds["WIHOST"], "port": int(creds["WIPORT"])}],
-		http_auth=(creds["WIUSER"], creds["WIPASS"]),
-		scheme="https",
-		verify_certs=False
-	)
-
 	# Regenerate the bwn-states-agents index with a fresh query of the Wazuh API and refreshing the template.
-	refresh_agents_index(os_client, creds)
+	refresh_agents_index(os_client, architecture, creds)
 
 	# Regenerate the bwn-states-agent-version-stats index with a fresh data from bwn-states-agents and refreshing the template.
 	refresh_agents_stats_index(os_client, target_version)
