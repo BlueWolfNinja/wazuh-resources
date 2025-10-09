@@ -9,7 +9,7 @@
 # https://github.com/BlueWolfNinja/wazuh-resources
 #
 # Explained in this blog article
-# https://bluewolfninja.com/---TBD---
+# https://bluewolfninja.com/2025/09/29/automation-and-tracking-of-wazuh-agent-upgrades/
 #
 # This script checks for outdated Wazuh agents, initiates upgrades, monitors upgrade progress,
 # logs results, refreshes the bwn-states-agents index, recalculates agent version stats, and
