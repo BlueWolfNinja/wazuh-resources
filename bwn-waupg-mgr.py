@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 #
-# bwn-wazuh-agent-upgrade-manager
+# bwn-waupg-mgr.py (Blue Wolf Ninja Wazuh Agent Upgrades Manager)
 # by Kevin Branch (@BlueWolfNinja)
 # https://bluewolfninja.com
 #
 # Authoritatively available from:
 # https://github.com/BlueWolfNinja/wazuh-resources
 #
-# Explained in this blog article
+# Presented in this blog article
 # https://bluewolfninja.com/2025/09/29/automation-and-tracking-of-wazuh-agent-upgrades/
 #
 # This script checks for outdated Wazuh agents, initiates upgrades, monitors upgrade progress,
