@@ -29,6 +29,16 @@ from datetime import datetime, timezone, timedelta
 from dateutil import parser
 from opensearchpy import OpenSearch, helpers
 
+# How long to pause before each check on the progress of the upgrade tasks
+sleep1 = 30
+# How long to pause after a progress check reports no agents in the "Upgrading" state before checking for the last time
+sleep2 = 60
+
+# Check if the script is being run as root.  Warn and exit otherwise.
+if os.geteuid() != 0:
+	print("Warning: This script must be run as root.")
+	sys.exit(1)
+
 # Suppress InsecureRequestWarning from urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -39,37 +49,32 @@ warnings.filterwarnings(
 	category=UserWarning
 )
 
-# How long to pause before each check on the progress of the upgrade tasks
-sleep1 = 30
-# How long to pause after a progress check reports no agents in the "Upgrading" state before checking for the last time
-sleep2 = 60
 
-
-def load_auth(config_file=None):
+def load_config(config_file=None):
 	if config_file is None:
 		config_file = "/etc/.siem-auth"
-	creds = {}
+	config = {}
 	with open(config_file) as f:
 		for line in f:
 			line = line.strip()
 			if not line or line.startswith("#"):
 				continue
 			k, v = line.split("=", 1)
-			creds[k.strip()] = v.strip().strip('"')
+			config[k.strip()] = v.strip().strip('"')
 
 	# Required variables validation
 	required_vars = ["WAPIHOST", "WAPIUSER", "WAPIPASS", "WIHOST", "WIUSER", "WIPASS"]
-	missing_vars = [v for v in required_vars if v not in creds]
+	missing_vars = [v for v in required_vars if v not in config]
 	if missing_vars:
 		raise ValueError(f"Missing required variables in config file '{config_file}': {', '.join(missing_vars)}")
 
-	return creds
+	return config
 
 
-def get_token(creds):
-	url = f"https://{creds['WAPIHOST']}:55000/security/user/authenticate?raw=true"
+def get_token(config):
+	url = f"https://{config['WAPIHOST']}:55000/security/user/authenticate?raw=true"
 	try:
-		resp = requests.get(url, auth=(creds["WAPIUSER"], creds["WAPIPASS"]), verify=False)
+		resp = requests.get(url, auth=(config["WAPIUSER"], config["WAPIPASS"]), verify=False)
 		resp.raise_for_status()
 	except requests.RequestException as e:
 		print(f"Error fetching Wazuh API token: {e}")
@@ -120,7 +125,8 @@ def load_architecture_dictionary(os_client, architecture):
 
 	# print(json.dumps(architecture, indent=2))
 
-def upgrade_agents(agents, architecture, creds, token, log_file):
+
+def upgrade_agents(agents, architecture, config, token, log_file):
 	if not agents:
 		print("No candidates for agent upgrades.")
 		sys.exit(0)
@@ -134,7 +140,7 @@ def upgrade_agents(agents, architecture, creds, token, log_file):
 
 	# Initiate upgrade
 	agent_ids_csv = ",".join(agents.keys())
-	url_upgrade = f"https://{creds['WAPIHOST']}:55000/agents/upgrade?agents_list={agent_ids_csv}"
+	url_upgrade = f"https://{config['WAPIHOST']}:55000/agents/upgrade?agents_list={agent_ids_csv}"
 	print(f"Initiating upgrade tasks for agents: {url_upgrade}")
 	try:
 		resp = requests.put(url_upgrade, headers={"Authorization": f"Bearer {token}"}, verify=False)
@@ -147,10 +153,10 @@ def upgrade_agents(agents, architecture, creds, token, log_file):
 	while agents:
 		print(f"Pausing for {sleep1} seconds before checking on agent upgrade progress...")
 		time.sleep(sleep1)
-		check_upgrading_agents(agents, architecture, creds, log_file)
+		check_upgrading_agents(agents, architecture, config, log_file)
 		if not agents:
 			break
-		url_check = f"https://{creds['WAPIHOST']}:55000/agents/upgrade_result"
+		url_check = f"https://{config['WAPIHOST']}:55000/agents/upgrade_result"
 		try:
 			resp_check = requests.get(url_check, headers={"Authorization": f"Bearer {token}"}, verify=False)
 			resp_check.raise_for_status()
@@ -163,7 +169,7 @@ def upgrade_agents(agents, architecture, creds, token, log_file):
 		if not updating_agents and not in_queue_agents:
 			print(f"No agents are reporting they are in queue or updating, though one or more final agents may be restarting. Waiting for {sleep2} more seconds...")
 			time.sleep(sleep2)
-			check_upgrading_agents(agents, architecture, creds, log_file)
+			check_upgrading_agents(agents, architecture, config, log_file)
 			break
 
 	# Classify lingering agents as 'Absent' and log about them as well, leaving no remaining agents in the array.
@@ -184,12 +190,12 @@ def upgrade_agents(agents, architecture, creds, token, log_file):
 	print("Agent upgrade attempts complete")
 
 
-def check_upgrading_agents(agents, architecture, creds, log_file):
-	token = get_token(creds)
+def check_upgrading_agents(agents, architecture, config, log_file):
+	token = get_token(config)
 	for agent_id in list(agents.keys()):
 		agent_name = agents[agent_id].get("name", "unknown")
 		print(f"Checking upgrade task status for Agent {agent_id} ({agent_name})")
-		url = f"https://{creds['WAPIHOST']}:55000/agents/upgrade_result?agents_list={agent_id}"
+		url = f"https://{config['WAPIHOST']}:55000/agents/upgrade_result?agents_list={agent_id}"
 		try:
 			resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, verify=False)
 			resp.raise_for_status()
@@ -226,8 +232,8 @@ def check_upgrading_agents(agents, architecture, creds, log_file):
 			print("  No results yet")
 
 
-def refresh_agents_index(os_client, architecture, creds):
-	token = get_token(creds)
+def refresh_agents_index(os_client, architecture, config):
+	token = get_token(config)
 	
 	# Delete the bwn-states-agents index if it exists
 	print("Deleting index bwn-states-agents if present...")	
@@ -278,7 +284,7 @@ def refresh_agents_index(os_client, architecture, creds):
 	print("Created index bwn-states-agents", response)
 
 	# Fetch all agents from Wazuh API with only desired fields
-	url_all_agents = f"https://{creds['WAPIHOST']}:55000/agents?select=id,name,version,os.name,os.version,os.arch,os.platform,lastKeepAlive&limit=10000"
+	url_all_agents = f"https://{config['WAPIHOST']}:55000/agents?select=id,name,version,os.name,os.version,os.arch,os.platform,lastKeepAlive&limit=10000"
 	try:
 		resp_agents = requests.get(url_all_agents, headers={"Authorization": f"Bearer {token}"}, verify=False)
 		resp_agents.raise_for_status()
@@ -425,24 +431,26 @@ def refresh_agents_stats_index(os_client, target_version):
 def main():
 	parser = argparse.ArgumentParser(description="Upgrade Wazuh agents")
 	parser.add_argument("-n", "--number", type=int, default=None)
-	parser.add_argument("-c", "--config", type=str, default="/etc/.siem-auth")
-	parser.add_argument("-l", "--log", type=str, default="/var/log/wazuh-agent-upgrade-manager.json")
+	parser.add_argument("-c", "--config", type=str, default="/etc/bwn-waupg-mgr.conf")
+	parser.add_argument("-l", "--log", type=str, default="/var/log/bwn-waupg-mgr.json")
 	parser.add_argument('-r', '--refresh', action='store_true', help='Only refresh the stateful indexes.  Initiate no upgrading of agents.')
 	args = parser.parse_args()
 
 	log_file = args.log
-	creds = load_auth(args.config)
-	token = get_token(creds)
+	config = load_config(args.config)
+	token = get_token(config)
 
 	# Connect to Wazuh Indexer for stateful index and template refresh purposes
 	os_client = OpenSearch(
-		hosts=[{"host": creds["WIHOST"], "port": int(creds["WIPORT"])}],
-		http_auth=(creds["WIUSER"], creds["WIPASS"]),
+		hosts=[{"host": config["WIHOST"], "port": int(config["WIPORT"])}],
+		http_auth=(config["WIUSER"], config["WIPASS"]),
 		scheme="https",
 		verify_certs=False
 	)
 
 	# Create and populate an architecture dictionary keyed by agent.id with an "arch" value from host.architecture in wazuh-states-inventory-system-*
+	# This is only available in Wazuh versions 4.13.0 or above.
+	# With older Wazuh versions, Wazuh's partially complete architecture information will be used.
 	architecture = {}
 	load_architecture_dictionary(os_client, architecture)
 
@@ -454,7 +462,7 @@ def main():
 			target_version = line.split("=")[1].strip().strip('"').lstrip("v")
 
 	# Fetch outdated agents via Wazuh API
-	url = f"https://{creds['WAPIHOST']}:55000/agents/outdated?select=id,name,version,os.platform,os.name,os.version,os.arch&q=status=active"
+	url = f"https://{config['WAPIHOST']}:55000/agents/outdated?select=id,name,version,os.platform,os.name,os.version,os.arch&q=status=active"
 	try:
 		resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, verify=False)
 		resp.raise_for_status()
@@ -480,12 +488,12 @@ def main():
 
 	# Proceed to initiate and track agent upgrades unless -r/--refresh was specified
 	if not args.refresh: 
-		upgrade_agents(agents, architecture, creds, token, log_file)
+		upgrade_agents(agents, architecture, config, token, log_file)
 	else:
 		print("Refreshing stateful indexes without any upgrading of agents...")
 		
 	# Regenerate the bwn-states-agents index with a fresh query of the Wazuh API and refreshing the template.
-	refresh_agents_index(os_client, architecture, creds)
+	refresh_agents_index(os_client, architecture, config)
 
 	# Regenerate the bwn-states-agent-version-stats index with a fresh data from bwn-states-agents and refreshing the template.
 	refresh_agents_stats_index(os_client, target_version)
