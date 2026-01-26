@@ -1,0 +1,244 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+#
+# wi-security-restore (Wazuh indexer security state restore tool)
+# by Kevin Branch (@BlueWolfNinja)
+# https://bluewolfninja.com
+#
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Presented in this blog article
+# https://bluewolfninja.com/2026/01/26/backup-and-restore-of-wazuh-indexer-security-state/
+#
+# This script is a wrapper of Wazuh's own indexer-security-init.sh script.  It restores a backup of the Wazuh indexer
+# cluster security state from a specific day's backup directory to the live .opendistro_security index. 
+#
+# If --date is provided: replace current YAMLs in /etc/wazuh-indexer/opensearch-security/ with YAMLs from the
+#   /etc/wazuh-indexer/opensearch-security/YYYY-MM-DD/ direcory corresponding to a specific day's backup, and restore.
+# If --date is NOT provided: do NOT copy anything; assume desired YAMLs are already in /etc/wazuh-indexer/opensearch-security/
+#   and then restore.
+#
+
+SCRIPT_NAME="$(basename "$0")"
+INDEXER_INIT="/usr/share/wazuh-indexer/bin/indexer-security-init.sh"
+SECURITY_DIR="/etc/wazuh-indexer/opensearch-security"
+
+usage() {
+  cat <<EOF
+Usage:
+  ${SCRIPT_NAME} [--host <hostname|ip>] [--port <port>] [--date <YYYY-MM-DD>] [--dry-run] [--help]
+
+Options:
+  --host     Wazuh indexer host name or IP (optional)
+  --port     Wazuh indexer listening port (optional)
+  --date     Backup date code YYYY-MM-DD (optional). If omitted, no file copy is performed.
+  --dry-run  Print what would be done, but do not modify files or execute anything
+  --help     Show this help and exit
+EOF
+}
+
+WIHOST=""
+WIPORT=""
+DATE_CODE=""
+DRYRUN=0
+DATE_SPECIFIED=0
+
+# Parse args (supports: --opt value OR --opt=value)
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --dry-run)
+      DRYRUN=1
+      shift
+      ;;
+    --host)
+      [[ $# -ge 2 ]] || { echo "Error: --host requires a value" >&2; usage; exit 2; }
+      WIHOST="$2"
+      shift 2
+      ;;
+    --host=*)
+      WIHOST="${1#*=}"
+      shift
+      ;;
+    --port)
+      [[ $# -ge 2 ]] || { echo "Error: --port requires a value" >&2; usage; exit 2; }
+      WIPORT="$2"
+      shift 2
+      ;;
+    --port=*)
+      WIPORT="${1#*=}"
+      shift
+      ;;
+    --date)
+      [[ $# -ge 2 ]] || { echo "Error: --date requires a value" >&2; usage; exit 2; }
+      DATE_CODE="$2"
+      DATE_SPECIFIED=1
+      shift 2
+      ;;
+    --date=*)
+      DATE_CODE="${1#*=}"
+      DATE_SPECIFIED=1
+      shift
+      ;;
+    *)
+      echo "Error: Unknown argument: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+# Validation
+if [[ -n "$WIPORT" ]]; then
+  if ! [[ "$WIPORT" =~ ^[0-9]+$ ]] || (( WIPORT < 1 || WIPORT > 65535 )); then
+    echo "Error: --port must be an integer between 1 and 65535" >&2
+    exit 2
+  fi
+fi
+
+if [[ ! -x "$INDEXER_INIT" ]]; then
+  echo "Error: Not found or not executable: $INDEXER_INIT" >&2
+  exit 1
+fi
+
+if [[ ! -d "$SECURITY_DIR" ]]; then
+  echo "Error: Security directory not found: $SECURITY_DIR" >&2
+  exit 1
+fi
+
+# Required YAMLs (validated immediately before calling wrapped script)
+REQUIRED_FILES=(
+  "action_groups.yml"
+  "allowlist.yml"
+  "audit.yml"
+  "config.yml"
+  "internal_users.yml"
+  "nodes_dn.yml"
+  "roles.yml"
+  "roles_mapping.yml"
+  "tenants.yml"
+  "whitelist.yml"
+)
+
+# If --date provided, validate date is real and backup dir exists, then stage files
+if [[ "$DATE_SPECIFIED" -eq 1 ]]; then
+  if ! [[ "$DATE_CODE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+    echo "Error: --date must be in YYYY-MM-DD format" >&2
+    exit 2
+  fi
+
+  # Validate it's a real calendar date (e.g., reject 2026-02-30).
+  if ! date -d "$DATE_CODE" +%F >/dev/null 2>&1; then
+    echo "Error: --date is not a real calendar date: $DATE_CODE" >&2
+    exit 2
+  fi
+
+  # Ensure the date round-trips exactly (guards against weird coercions).
+  if [[ "$(date -d "$DATE_CODE" +%F 2>/dev/null || true)" != "$DATE_CODE" ]]; then
+    echo "Error: --date is not a valid YYYY-MM-DD date: $DATE_CODE" >&2
+    exit 2
+  fi
+
+  SRC_DIR="${SECURITY_DIR}/${DATE_CODE}"
+  if [[ ! -d "$SRC_DIR" ]]; then
+    echo "Error: No corresponding backup directory for --date:" >&2
+    echo "  Expected: ${SRC_DIR}" >&2
+    exit 1
+  fi
+
+  # Ensure backup directory has at least the required YAMLs before wiping top-level.
+  missing_in_backup=()
+  for f in "${REQUIRED_FILES[@]}"; do
+    if [[ ! -f "${SRC_DIR}/${f}" ]]; then
+      missing_in_backup+=( "$f" )
+    fi
+  done
+  if [[ ${#missing_in_backup[@]} -gt 0 ]]; then
+    echo "Error: Backup directory is missing required file(s): ${SRC_DIR}" >&2
+    for f in "${missing_in_backup[@]}"; do
+      echo "  - ${f}" >&2
+    done
+    exit 1
+  fi
+
+  shopt -s nullglob
+  DEST_YMLS=( "${SECURITY_DIR}"/*.yml "${SECURITY_DIR}"/*.yaml )
+  shopt -u nullglob
+
+  if [[ "$DRYRUN" -eq 1 ]]; then
+    echo "Dry run: would replace YAMLs in: ${SECURITY_DIR}"
+    if [[ ${#DEST_YMLS[@]} -gt 0 ]]; then
+      echo "Dry run: would remove existing YAMLs:"
+      for f in "${DEST_YMLS[@]}"; do
+        echo "  rm -f \"${f}\""
+      done
+    else
+      echo "Dry run: no existing YAMLs to remove in: ${SECURITY_DIR}"
+    fi
+
+    echo "Dry run: would copy required YAMLs from: ${SRC_DIR}"
+    for f in "${REQUIRED_FILES[@]}"; do
+      echo "  cp -a \"${SRC_DIR}/${f}\" \"${SECURITY_DIR}/\""
+    done
+  else
+    if [[ ${#DEST_YMLS[@]} -gt 0 ]]; then
+      rm -f "${DEST_YMLS[@]}"
+    fi
+    # Copy only the required set (keeps restore deterministic)
+    for f in "${REQUIRED_FILES[@]}"; do
+      cp -a "${SRC_DIR}/${f}" "${SECURITY_DIR}/"
+    done
+    echo "Staged YAMLs from ${SRC_DIR} into ${SECURITY_DIR}"
+  fi
+else
+  if [[ "$DRYRUN" -eq 1 ]]; then
+    echo "Dry run: --date not provided; no file copy will be performed."
+    echo "Dry run: assuming desired YAMLs are already present in: ${SECURITY_DIR}"
+  fi
+fi
+
+# Validate required YAMLs are present before running wrapped script
+missing=()
+for f in "${REQUIRED_FILES[@]}"; do
+  if [[ ! -f "${SECURITY_DIR}/${f}" ]]; then
+    missing+=( "$f" )
+  fi
+done
+
+if [[ ${#missing[@]} -gt 0 ]]; then
+  echo "Error: Missing required file(s) in ${SECURITY_DIR}:" >&2
+  for f in "${missing[@]}"; do
+    echo "  - ${f}" >&2
+  done
+  exit 1
+fi
+
+# Build command argv array (no --options for restore wrapper)
+cmd=( "$INDEXER_INIT" )
+if [[ -n "$WIHOST" ]]; then
+  cmd+=( --host "$WIHOST" )
+fi
+if [[ -n "$WIPORT" ]]; then
+  cmd+=( --port "$WIPORT" )
+fi
+
+if [[ "$DRYRUN" -eq 1 ]]; then
+  echo -n "Dry run: ${INDEXER_INIT}"
+  if [[ -n "$WIHOST" ]]; then
+    echo -n " --host ${WIHOST}"
+  fi
+  if [[ -n "$WIPORT" ]]; then
+    echo -n " --port ${WIPORT}"
+  fi
+  echo
+  exit 0
+fi
+
+echo "Validation passed: required YAMLs present in ${SECURITY_DIR}"
+echo "Running: ${cmd[*]}"
+exec "${cmd[@]}"
