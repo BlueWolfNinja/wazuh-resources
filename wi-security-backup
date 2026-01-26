@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+#
+# wi-security-backup (Wazuh indexer security state backup tool)
+# by Kevin Branch (@BlueWolfNinja)
+# https://bluewolfninja.com
+#
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Presented in this blog article
+# https://bluewolfninja.com/2026/01/26/backup-and-restore-of-wazuh-indexer-security-state/
+#
+# This script is a wrapper of Wazuh's own indexer-security-init.sh script.  It stores date-coded backups of the Wazuh indexer
+# cluster security state that is authoritatively maintained in the .opendistro_security index, 
+# putting the backup in the /etc/wazuh-indexer/opensearch-security/YYYY-MM-DD/ directory corresponding to the current date.
+#
+
+SCRIPT_NAME="$(basename "$0")"
+INDEXER_INIT="/usr/share/wazuh-indexer/bin/indexer-security-init.sh"
+BACKUP_BASE_DIR="/etc/wazuh-indexer/opensearch-security"
+
+usage() {
+  cat <<EOF
+Usage:
+  ${SCRIPT_NAME} [--host <hostname|ip>] [--port <port>] [--dry-run] [--help]
+
+Options:
+  --host     Wazuh indexer host name or IP (optional)
+  --port     Wazuh indexer listening port (optional)
+  --dry-run  Print the command that would run, but do not execute it
+  --help     Show this help and exit
+
+Example:
+  ${SCRIPT_NAME} --host 10.0.0.10 --port 9200
+  ${SCRIPT_NAME} --dry-run
+EOF
+}
+
+WIHOST=""
+WIPORT=""
+DRYRUN=0
+
+# Parse args (supports: --host value  OR  --host=value)
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --dry-run)
+      DRYRUN=1
+      shift
+      ;;
+    --host)
+      [[ $# -ge 2 ]] || { echo "Error: --host requires a value" >&2; usage; exit 2; }
+      WIHOST="$2"
+      shift 2
+      ;;
+    --host=*)
+      WIHOST="${1#*=}"
+      shift
+      ;;
+    --port)
+      [[ $# -ge 2 ]] || { echo "Error: --port requires a value" >&2; usage; exit 2; }
+      WIPORT="$2"
+      shift 2
+      ;;
+    --port=*)
+      WIPORT="${1#*=}"
+      shift
+      ;;
+    *)
+      echo "Error: Unknown argument: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+# Basic validation (only if provided)
+if [[ -n "$WIPORT" ]]; then
+  if ! [[ "$WIPORT" =~ ^[0-9]+$ ]] || (( WIPORT < 1 || WIPORT > 65535 )); then
+    echo "Error: --port must be an integer between 1 and 65535" >&2
+    exit 2
+  fi
+fi
+
+if [[ ! -x "$INDEXER_INIT" ]]; then
+  echo "Error: Not found or not executable: $INDEXER_INIT" >&2
+  exit 1
+fi
+
+DATE_CODE="$(date +%F)"  # YYYY-MM-DD
+BACKUP_DIR="${BACKUP_BASE_DIR}/${DATE_CODE}"
+
+# IMPORTANT: This whole value must be passed as ONE argument (one set of quotes)
+OPTIONS="-backup ${BACKUP_DIR} -icl -nhnv"
+
+# Build command with optional host/port
+cmd=( "$INDEXER_INIT" )
+if [[ -n "$WIHOST" ]]; then
+  cmd+=( --host "$WIHOST" )
+fi
+if [[ -n "$WIPORT" ]]; then
+  cmd+=( --port "$WIPORT" )
+fi
+cmd+=( --options "$OPTIONS" )
+
+if [[ "$DRYRUN" -eq 1 ]]; then
+  # Print a clean, human-readable command line (no escape backslashes),
+  # while showing the required single set of double quotes around --options.
+  echo -n "Dry run: ${INDEXER_INIT}"
+  if [[ -n "$WIHOST" ]]; then
+    echo -n " --host ${WIHOST}"
+  fi
+  if [[ -n "$WIPORT" ]]; then
+    echo -n " --port ${WIPORT}"
+  fi
+  echo " --options \"${OPTIONS}\""
+  exit 0
+fi
+
+echo "Running: ${cmd[*]}"
+exec "${cmd[@]}"
