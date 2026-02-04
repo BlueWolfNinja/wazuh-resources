@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+	echo "Usage: wi-sec-diff <old_date_code> <new_date_code>" >&2
+	echo "Example: wi-sec-diff 2026-01-21 2026-01-22" >&2
+	exit 1
+fi
+
+OLD_DATE="$1"
+NEW_DATE="$2"
+
+ROOT_DIR="/etc/wazuh-indexer/opensearch-security"
+OLD_DIR="${ROOT_DIR}/${OLD_DATE}"
+NEW_DIR="${ROOT_DIR}/${NEW_DATE}"
+
+FILES=(
+	action_groups.yml
+	allowlist.yml
+	audit.yml
+	config.yml
+	internal_users.yml
+	nodes_dn.yml
+	roles.yml
+	roles_mapping.yml
+	tenants.yml
+	whitelist.yml
+)
+
+if [[ ! -d "$OLD_DIR" ]]; then
+	echo "Error: directory not found: $OLD_DIR" >&2
+	exit 1
+fi
+
+if [[ ! -d "$NEW_DIR" ]]; then
+	echo "Error: directory not found: $NEW_DIR" >&2
+	exit 1
+fi
+
+flatten_tsv() {
+	local prefix="$1"
+	local file="$2"
+
+	yq -o=json '.' "$file" \
+	| jq -r --arg prefix "$prefix" '
+		paths(scalars) as $p
+		| [ ($prefix + ($p | map(tostring) | join("."))),
+		    (getpath($p) | tostring)
+		  ]
+		| @tsv
+	' \
+	| sort
+}
+
+diff_one() {
+	local old_file="$1"
+	local new_file="$2"
+	local base="$3"
+	local prefix="${base}."
+
+	# Redaction happens after comparison: we compare true values, print masked values.
+	gawk -F'\t' '
+		function is_redact_key(k, lk) {
+			lk = tolower(k)
+
+			# exact/suffix patterns
+			if (lk ~ /\.hash$/) return 1
+
+			# common secret-ish substrings (config.yml is the usual home, but keep generic)
+			if (lk ~ /(client_secret|signing_key|secret_key|private_key|keystore_password|truststore_password)/) return 1
+
+			# JWT/HMAC-ish keys
+			if (lk ~ /(jwt|hmac)/ && lk ~ /(key|secret)/) return 1
+
+			return 0
+		}
+
+		BEGIN { out = "" }
+
+		FNR==NR { old[$1] = $2; seen[$1] = 1; next }
+
+		{ new[$1] = $2; seen[$1] = 1 }
+
+		END {
+			n = asorti(seen, keys)
+			for (i = 1; i <= n; i++) {
+				k = keys[i]
+
+				has_old = (k in old)
+				has_new = (k in new)
+
+				ov = has_old ? old[k] : "\034MISSING\034"
+				nv = has_new ? new[k] : "\034MISSING\034"
+
+				if (ov == nv) continue
+
+				minus_line = ""
+				plus_line  = ""
+
+				if (has_old && ov != "") {
+					pv = is_redact_key(k) ? "<REDACTED>" : ov
+					minus_line = "- " k "=" pv
+				}
+
+				if (has_new && nv != "") {
+					pv = is_redact_key(k) ? "<REDACTED>" : nv
+					plus_line = "+ " k "=" pv
+				}
+
+				# If both sides are empty or missing, nothing to print
+				if (minus_line == "" && plus_line == "") continue
+
+				group = ""
+				if (minus_line != "") group = minus_line
+				if (plus_line  != "") group = (group == "" ? plus_line : group "\n" plus_line)
+
+				out = (out == "" ? group : out "\n\n" group)
+			}
+
+			if (out != "") print out
+			else print ""
+		}
+	' <(flatten_tsv "$prefix" "$old_file") <(flatten_tsv "$prefix" "$new_file")
+}
+
+any_diff=0
+printed_anything=0
+
+for fname in "${FILES[@]}"; do
+	old_path="${OLD_DIR}/${fname}"
+	new_path="${NEW_DIR}/${fname}"
+
+	if [[ ! -f "$old_path" ]]; then
+		echo "Warning: missing in old dir: $old_path" >&2
+		continue
+	fi
+
+	if [[ ! -f "$new_path" ]]; then
+		echo "Warning: missing in new dir: $new_path" >&2
+		continue
+	fi
+
+	base="${fname%.*}"
+
+	out="$(diff_one "$old_path" "$new_path" "$base")"
+	# remove trailing newlines so we can re-add exactly one closing newline when printing
+	out="${out%$'\n'}"
+
+	# treat whitespace-only as empty
+	if [[ -n "${out//$'\n'/}" ]]; then
+		if [[ $any_diff -eq 1 ]]; then
+			# always a blank line before the separator line
+			printf "\n============================================================\n\n"
+		fi
+
+		printf "## %s  (%s -> %s)\n\n" "$fname" "$OLD_DATE" "$NEW_DATE"
+		printf "%s\n" "$out"   # always exactly one closing newline per file block
+
+		any_diff=1
+		printed_anything=1
+	fi
+done
+
+# always ensure a closing newline at the end of output
+if [[ $printed_anything -eq 0 ]]; then
+	printf "\n"
+fi
+
+# exit code: 0 = no changes, 2 = changes found
+if [[ $printed_anything -eq 1 ]]; then
+	exit 2
+fi
+
+exit 0
