@@ -55,7 +55,7 @@ flatten_tsv() {
 	local prefix="$1"
 	local file="$2"
 
-	yq -o=json '.' "$file" \
+	/usr/local/bin/yq -o=json '.' "$file" \
 	| jq -r --arg prefix "$prefix" '
 		paths(scalars) as $p
 		| [ ($prefix + ($p | map(tostring) | join("."))),
