@@ -1,9 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+#
+# wi-security-diff (Wazuh indexer security state diff tool)
+# by Kevin Branch (@BlueWolfNinja)
+# https://bluewolfninja.com
+#
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Presented in this blog article
+# https://bluewolfninja.com/2026/01/26/backup-and-restore-of-wazuh-indexer-security-state/
+#
+# This script performs a comparison between the files in two different Wazuh indexer security state backup directories under /etc/wazuh-indexer/opensearch-security/.
+#
+
 if [[ $# -ne 2 ]]; then
-	echo "Usage: wi-sec-diff <old_date_code> <new_date_code>" >&2
-	echo "Example: wi-sec-diff 2026-01-21 2026-01-22" >&2
+	echo "Usage: wi-security-diff <old_date_code> <new_date_code>" >&2
+	echo "Example: wi-security-diff 2026-01-21 2026-01-22" >&2
 	exit 1
 fi
 
