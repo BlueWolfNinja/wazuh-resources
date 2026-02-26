@@ -1,7 +1,23 @@
 #!/venv/bwn/bin/python3
-"""
-Index Prefix Usage Report (Wazuh Indexer / OpenSearch)
-"""
+#
+# wi-prefix-report (Wazuh indexer per-index-prefix shard and disk space use reporting tool)
+# by Kevin Branch - https://www.linkedin.com/in/kevin-branch-04770939/
+# based on original work by my friend Ken Fredericksen - https://www.linkedin.com/in/kenneth-f-6ab44471/
+#
+# https://bluewolfninja.com
+#
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Presented here:
+# linkedin article for Ninja Nugget #8
+#
+# What it does...
+#
+# Example call and output...
+#
+
+set -euo pipefail
 
 import argparse
 import os
