@@ -1,4 +1,4 @@
-# Distro-Agnostic Python 3 Virtual Environment Setup
+# Installing the Python 3 Virtual Environment Expected by Scripts Shared in the Blue Wolf Ninja "wazuh-resources" Repo
 
 ## Goal
 
