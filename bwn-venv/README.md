@@ -1,18 +1,11 @@
-# Installing the Python 3 Virtual Environment Expected by Scripts Shared in the Blue Wolf Ninja "wazuh-resources" Repo
+# A common Python 3 virtual environment for Blue Wolf Ninja scripts.
+All Python scripts shared in this repository assume the presence of a baseline Python 3 virtual environment installed under /venv/bwn/.  Assuming you are using a modern Ubuntu, Debian, or Redhat variant, the following guide should work for you with little to no customization.
 
 ## Goal
 
 Create a Python 3 virtual environment at:
 
     /venv/bwn/
-
-These steps apply to modern:
-
--   Ubuntu
--   Debian
--   RHEL-family (RHEL, Rocky, AlmaLinux, CentOS Stream, Fedora)
-
-------------------------------------------------------------------------
 
 ## 1. Install Prerequisites
 
@@ -26,7 +19,7 @@ sudo apt-get update
 sudo apt-get install -y python3 python3-venv python3-pip
 ```
 
-### RHEL-family (RHEL, Rocky, AlmaLinux, CentOS Stream, Fedora)
+### Redhat-type distos
 
 Use whichever package manager exists on the host.
 
@@ -55,24 +48,9 @@ distribution. Possible package names include:
 -   `python3-virtualenv`
 -   `python3.x-venv` (version-specific)
 
-Package naming varies by distribution and release.
-
 ------------------------------------------------------------------------
 
 ## 2. Create the Parent Directory
-
-Choose an ownership model based on how the virtual environment will be
-managed.
-
-### Option A --- Service-Owned Virtual Environment (Recommended)
-
-``` bash
-sudo mkdir -p /venv
-sudo chown bwn:bwn /venv
-sudo chmod 0755 /venv
-```
-
-### Option B --- Root-Owned Virtual Environment
 
 ``` bash
 sudo mkdir -p /venv
@@ -82,14 +60,6 @@ sudo chmod 0755 /venv
 ------------------------------------------------------------------------
 
 ## 3. Create the Virtual Environment
-
-### If the venv should be owned by user `bwn`
-
-``` bash
-sudo -u bwn python3 -m venv /venv/bwn
-```
-
-### If root will manage the venv
 
 ``` bash
 sudo python3 -m venv /venv/bwn
