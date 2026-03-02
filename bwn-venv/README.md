@@ -32,7 +32,7 @@ jq>=1.0,<2.0
 opensearch-py>=2.0.0,<3.0.0
 python-dateutil>=2.0.0,<3.0.0
 ```
-#### If you make any additions or changes above, then apply them with:
+#### To apply changes made to `requirements.txt`, do the following:
 ```
 sudo /venv/bwn/bin/pip install -r /venv/bwn/requirements.txt
 ```
