@@ -10,7 +10,8 @@
 # Authoritatively hosted here:
 # https://github.com/BlueWolfNinja/wazuh-resources
 #
-# Many other resources are featured at https://bluewolfninja.com
+# Many other resources are featured at:
+#   https://bluewolfninja.com
 #
 # This script assumes the presence of a Python 3 /venv/bwn/ virtual environment.  
 # If it is not already present, you can follow these instructions:
