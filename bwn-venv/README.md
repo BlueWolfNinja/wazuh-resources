@@ -1,5 +1,5 @@
 # Establishing a shared Python 3 virtual environment for use with Blue Wolf Ninja scripts.
-Most Python scripts shared in this repository assume the presence of Python 3 and a virtual environment installed under `/venv/bwn/`.  Individual scripts will be documented at the top of the file with their dependencies.  Blue Wolf Ninja seeks to maintain a set of non-conflicting dependencies across all shared Python scripts that require a virtual environment.  You are of course completely free to use whatever Python 3 interpreter you like with my shared scripts, with or without a virtual environment, as long as you work out the dependency details.  I am just trying to provide as simple and non-conflicting of an experience as possible.
+Most Python scripts shared in this repository assume the presence of Python 3 and a virtual environment installed under `/venv/bwn/`.  Individual scripts will be documented at the top of the file with their dependencies.  Blue Wolf Ninja seeks to maintain a set of non-conflicting dependencies across all shared Python scripts that require a virtual environment.  You are of course completely free to use whatever Python 3 interpreter you like with BWN-shared scripts, with or without a virtual environment, as long as you work out the dependency details.  I am just trying to provide as simple and non-conflicting of an experience as possible.
 
 ### 1. Ensure python3 with virtual environment support is in place.
 
@@ -21,18 +21,18 @@ sudo python3 -m venv /venv/bwn
 sudo touch /venv/bwn/requirements.txt
 ```
 
-### 3. If step 2 fails
+### 3. If step 2 fails...
 
 Research how to add Python3 virtual environment support for your specific Linux distro and version.  Do what is necessary to add it, and then repeat step 2.
 
-### 4. When installing a new BWN Python script, ensure its dependencies are met.
-#### Search in the top of the script for a list of dependencies under "# Dependencies to add to /venv/bwn/requirements.txt", and add/replace lines in that file as needed.  For example, you might add:
+### 4. When installing a new BWN Python script, ensure its dependencies are met and up-to-date.
+#### Search in the top of the script for a list of dependencies under "# Dependencies to add to /venv/bwn/requirements.txt", and add/replace lines in that file as needed.  For example, you might need to add:
 ``` bash
 jq>=1.0,<2.0
 opensearch-py>=2.0.0,<3.0.0
 python-dateutil>=2.0.0,<3.0.0
 ```
-#### If you made any additions or changes above, then apply them with:
+#### If you make any additions or changes above, then apply them with:
 ```
 sudo /venv/bwn/bin/pip install -r /venv/bwn/requirements.txt
 ```
