@@ -4,13 +4,13 @@
 # by Kevin Branch (@BlueWolfNinja) - https://www.linkedin.com/in/kevin-branch-04770939/
 # based on original work by Ken Fredericksen - https://www.linkedin.com/in/kenneth-f-6ab44471/
 #
-# Many other resources are featured at https://bluewolfninja.com
-#
-# This script is authoritatively hosted here:
-# https://github.com/BlueWolfNinja/wazuh-resources
-#
 # Presented here:
 # linkedin article for Ninja Nugget #8
+#
+# Authoritatively hosted here:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Many other resources are featured at https://bluewolfninja.com
 #
 # This script assumes the presence of a Python 3 /venv/bwn/ virtual environment.  
 # If it is not already present, you can follow these instructions:
@@ -34,7 +34,7 @@
 #   wi-prefix-report [-h] --auth-file AUTH_FILE [--prefix PREFIX] [--prefix-file PREFIX_FILE] [--PREFIX-FILE PREFIX_FILE] [--human]
 # 
 # EXAMPLE
-#   wi-prefix-report --auth-file /etc/.siem-auth --human --prefix wazuh-alerts- --prefix wazuh-archives-
+#   wi-prefix-report --auth-file /etc/wazuh-auth --human --prefix wazuh-alerts- --prefix wazuh-archives-
 #   Prefix           Indexes  Primary Shards  All Shards  % Total Shards  Primary Shard Space  Total Space  % Total Space
 #   ---------------  -------  --------------  ----------  --------------  -------------------  -----------  -------------
 #   wazuh-alerts-        357             601        1075             87%              2.2 TiB      3.9 TiB            82%
@@ -42,7 +42,8 @@
 #   ------           -------  --------------  ----------  --------------  -------------------  -----------  -------------
 #   TOTAL                450             694        1235            100%              2.7 TiB      4.8 TiB           100%
 #
-# Alternatively, --prefix-file can be specified that refers to a file containing one prefix per line.
+# Alternatively, --prefix-file can be specified to point at a file containing one index name prefix per line.
+#   wi-prefix-report --auth-file /etc/wazuh-auth --human --prefix-file /etc/wazuh-index-prefixes
 #
 
 import argparse
