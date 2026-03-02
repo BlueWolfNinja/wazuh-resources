@@ -2,7 +2,7 @@
 #
 # wi-prefix-report (Wazuh indexer per-index-prefix shard and disk space usage reporting tool)
 # by Kevin Branch (@BlueWolfNinja) - https://www.linkedin.com/in/kevin-branch-04770939/
-# based on original work by Ken Fredericksen - https://www.linkedin.com/in/kenneth-f-6ab44471/
+# based on  excellent original work by Ken Fredericksen - https://www.linkedin.com/in/kenneth-f-6ab44471/
 #
 # Presented here:
 # linkedin article for Ninja Nugget #8
