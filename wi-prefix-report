@@ -1,16 +1,29 @@
 #!/venv/bwn/bin/python3
 #
 # wi-prefix-report (Wazuh indexer per-index-prefix shard and disk space use reporting tool)
-# by Kevin Branch - https://www.linkedin.com/in/kevin-branch-04770939/
-# based on original work by my friend Ken Fredericksen - https://www.linkedin.com/in/kenneth-f-6ab44471/
+# by Kevin Branch (@BlueWolfNinja) - https://www.linkedin.com/in/kevin-branch-04770939/
+# based on original work by Ken Fredericksen - https://www.linkedin.com/in/kenneth-f-6ab44471/
 #
-# https://bluewolfninja.com
+# Many other resources are available at https://bluewolfninja.com
 #
 # Authoritatively available from:
 # https://github.com/BlueWolfNinja/wazuh-resources
 #
 # Presented here:
 # linkedin article for Ninja Nugget #8
+#
+# This script assumes the presence of a Python 3 /venv/bwn/ virtual environment.  
+# If it is not already present, you can follow these instructions:
+#   https://github.com/BlueWolfNinja/wazuh-resources/blob/main/bwn-venv
+#
+# This script requires at least the following lines to be present in /venv/bwn/requirements.txt:
+#   jq>=1.0,<2.0
+#   opensearch-py>=2.0.0,<3.0.0
+#   python-dateutil>=2.0.0,<3.0.0
+#
+# If you change /venv/bwn/requirements.txt, make sure to apply them with this command:
+#   sudo /venv/bwn/bin/pip install -r /venv/bwn/requirements.txt
+#
 #
 # What it does...
 #
