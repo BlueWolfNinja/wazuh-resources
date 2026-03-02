@@ -17,9 +17,7 @@
 #   https://github.com/BlueWolfNinja/wazuh-resources/blob/main/bwn-venv
 #
 # This script requires at least the following lines to be present in /venv/bwn/requirements.txt:
-#   jq>=1.0,<2.0
 #   opensearch-py>=2.0.0,<3.0.0
-#   python-dateutil>=2.0.0,<3.0.0
 #
 # If you change /venv/bwn/requirements.txt, make sure to apply them with this command:
 #   sudo /venv/bwn/bin/pip install -r /venv/bwn/requirements.txt
@@ -29,8 +27,6 @@
 #
 # Example call and output...
 #
-
-set -euo pipefail
 
 import argparse
 import os
