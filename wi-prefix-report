@@ -42,7 +42,7 @@
 #   ------           -------  --------------  ----------  --------------  -------------------  -----------  -------------
 #   TOTAL                450             694        1235            100%              2.7 TiB      4.8 TiB           100%
 #
-# Alternatively, --prefix-rule can be specified that refers to a file containing one prefix per line.
+# Alternatively, --prefix-file can be specified that refers to a file containing one prefix per line.
 #
 
 import argparse
