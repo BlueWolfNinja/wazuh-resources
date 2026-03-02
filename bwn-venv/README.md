@@ -1,5 +1,5 @@
 # Establishing a shared Python 3 virtual environment for use with Blue Wolf Ninja scripts.
-Most Python scripts shared in this repository assume the presence of Python 3 and a virtual environment installed under `/venv/bwn/`.  Such scripts will be documented at the top of the file with their dependencies.  Blue Wolf Ninja seeks to maintain a set of non-conflicting dependencies across all shared Python scripts that require a virtual environment.  You are of course completely free to use whatever Python 3 interpreter you like with BWN-shared scripts, with or without a virtual environment, as long as you work out the dependency details.  This is just an effor to provide as simple and non-conflicting of an experience as possible.  If you see any way I could make the following more Linux distro-agnsotic in a simple way, please share your ideas!
+Most Python scripts shared in this repository assume the presence of Python 3 and a virtual environment installed under `/venv/bwn/`.  Such scripts will be documented at the top of the file with their dependencies.  Blue Wolf Ninja seeks to maintain a set of non-conflicting dependencies across all shared Python scripts that require a virtual environment.  You are of course completely free to use whatever Python 3 interpreter you like with BWN-shared scripts, with or without a virtual environment, as long as you work out the dependency details.  This is just an effort to provide as simple and non-conflicting of an experience as possible.  If you see any way I could make the following more Linux distro-agnsotic in a simple way, please share your ideas!
 
 ### 1. Ensure python3 with virtual environment support is in place.
 
@@ -26,7 +26,7 @@ sudo touch /venv/bwn/requirements.txt
 Research how to add Python3 virtual environment support for your specific Linux distro and version.  Do what is necessary to add it, and then repeat step 2.
 
 ### 4. When installing a new BWN Python script, ensure its dependencies are met and up-to-date.
-#### Search in the top of the script for a list of dependencies under "# Dependencies to add to /venv/bwn/requirements.txt", and add/replace lines in that file as needed.  For example, you might need to add:
+#### Search in the top of the script for a list of dependencies under "# This script requires at least the following lines to be present in /venv/bwn/requirements.txt:", and add/replace lines in that file as needed.  For example, you might need to add:
 ``` bash
 jq>=1.0,<2.0
 opensearch-py>=2.0.0,<3.0.0
