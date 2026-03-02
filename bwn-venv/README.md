@@ -1,130 +1,39 @@
-# A common Python 3 virtual environment for Blue Wolf Ninja scripts.
-All Python scripts shared in this repository assume the presence of a baseline Python 3 virtual environment installed under /venv/bwn/.  Assuming you are using a modern Ubuntu, Debian, or Redhat variant, the following guide should work for you with little to no customization.
+# Establishing a shared Python 3 virtual environment for use with Blue Wolf Ninja scripts.
+Most Python scripts shared in this repository assume the presence of Python 3 and a virtual environment installed under `/venv/bwn/`.  Individual scripts will be documented at the top of the file with their dependencies.  Blue Wolf Ninja seeks to maintain a set of non-conflicting dependencies across all shared Python scripts that require a virtual environment.  You are of course completely free to use whatever Python 3 interpreter you like with my shared scripts, with or without a virtual environment, as long as you work out the dependency details.  I am just trying to provide as simple and non-conflicting of an experience as possible.
 
-## Goal
-
-Create a Python 3 virtual environment at:
-
-    /venv/bwn/
-
-## 1. Install Prerequisites
-
-Install Python 3, pip, and the venv module using the system package
-manager.
-
-### Ubuntu / Debian
+### 1. Ensure python3 with virtual environment support is in place.
 
 ``` bash
-sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip
+if command -v apt >/dev/null 2>&1; then
+	sudo apt -y install python3; sudo apt -y install python3-venv
+elif command -v dnf >/dev/null 2>&1; then
+	sudo dnf -y install --skip-unavailable python3 python3-venv
+elif command -v yum >/dev/null 2>&1; then
+	sudo yum -y install --skip-unavailable python3 python3-venv
+fi
 ```
 
-### Redhat-type distos
+### 2. Put the virtual environment in place.
 
-Use whichever package manager exists on the host.
-
-Using `dnf`:
-
-``` bash
-sudo dnf install -y python3 python3-pip
-```
-
-Using `yum`:
-
-``` bash
-sudo yum install -y python3 python3-pip
-```
-
-If this command fails:
-
-``` bash
-python3 -m venv /venv/bwn
-```
-
-Install the appropriate venv-related package provided by your
-distribution. Possible package names include:
-
--   `python3-venv`
--   `python3-virtualenv`
--   `python3.x-venv` (version-specific)
-
-------------------------------------------------------------------------
-
-## 2. Create the Parent Directory
-
-``` bash
-sudo mkdir -p /venv
-sudo chmod 0755 /venv
-```
-
-------------------------------------------------------------------------
-
-## 3. Create the Virtual Environment
-
-``` bash
+``` bash 
+sudo mkdir /venv
 sudo python3 -m venv /venv/bwn
+sudo touch /venv/bwn/requirements.txt
 ```
 
-------------------------------------------------------------------------
+### 3. If step 2 fails
 
-## 4. Activate the Virtual Environment and Upgrade Packaging Tools
+Research how to add Python3 virtual environment support for your specific Linux distro and version.  Do what is necessary to add it, and then repeat step 2.
 
-Activate:
-
+### 4. When installing a new BWN Python script, ensure its dependencies are met.
+#### Search in the top of the script for a list of dependencies under "# Dependencies to add to /venv/bwn/requirements.txt", and add/replace lines in that file as needed.  For example, you might add:
 ``` bash
-source /venv/bwn/bin/activate
+jq>=1.0,<2.0
+opensearch-py>=2.0.0,<3.0.0
+python-dateutil>=2.0.0,<3.0.0
 ```
-
-Upgrade packaging tools:
-
-``` bash
-python -m pip install --upgrade pip setuptools wheel
+#### If you made any additions or changes above, then apply them with:
 ```
-
-Verify:
-
-``` bash
-which python
-python --version
-python -m pip --version
+sudo /venv/bwn/bin/pip install -r /venv/bwn/requirements.txt
 ```
-
-Deactivate when finished:
-
-``` bash
-deactivate
-```
-
-------------------------------------------------------------------------
-
-## 5. Non-Interactive Usage (systemd, cron, automation)
-
-Avoid activation in automation contexts. Instead, call the virtual
-environment's binaries directly.
-
-Install dependencies:
-
-``` bash
-/venv/bwn/bin/python -m pip install -r /path/to/requirements.txt
-```
-
-Run an application:
-
-``` bash
-/venv/bwn/bin/python /path/to/app.py
-```
-
-------------------------------------------------------------------------
-
-## Additional Notes
-
--   Ensure the virtual environment directory is writable by the intended
-    managing user.
--   On SELinux-enforcing RHEL-family systems, file contexts may require
-    adjustment depending on the service domain.
--   If multiple Python 3 versions are installed, explicitly target the
-    required version:
-
-``` bash
-python3.11 -m venv /venv/bwn
-```
+You may wish to keep this virtual environment up-to-date by adding the above command to your standard Linux update procedure.
