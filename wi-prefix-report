@@ -1,12 +1,12 @@
 #!/venv/bwn/bin/python3
 #
-# wi-prefix-report (Wazuh indexer per-index-prefix shard and disk space use reporting tool)
+# wi-prefix-report (Wazuh indexer per-index-prefix shard and disk space usage reporting tool)
 # by Kevin Branch (@BlueWolfNinja) - https://www.linkedin.com/in/kevin-branch-04770939/
 # based on original work by Ken Fredericksen - https://www.linkedin.com/in/kenneth-f-6ab44471/
 #
 # Many other resources are featured at https://bluewolfninja.com
 #
-# Authoritatively available from:
+# This script is authoritatively hosted here:
 # https://github.com/BlueWolfNinja/wazuh-resources
 #
 # Presented here:
@@ -16,26 +16,41 @@
 # If it is not already present, you can follow these instructions:
 #   https://github.com/BlueWolfNinja/wazuh-resources/blob/main/bwn-venv
 #
-# This script requires at least the following lines to be present in /venv/bwn/requirements.txt:
+# This script requires at least the following line(s) to be present in /venv/bwn/requirements.txt:
 #   opensearch-py>=2.0.0,<3.0.0
 #
-# If you change /venv/bwn/requirements.txt, make sure to apply them with this command:
+# If you change /venv/bwn/requirements.txt, make sure to apply the change with this command:
 #   sudo /venv/bwn/bin/pip install -r /venv/bwn/requirements.txt
 #
+# An auth-file must be present to define where the Wazuh indexer is to be reached and with what credentials.  The file must look like this:
+#   WIHOST=IP or DNS name of Wazuh indexer 
+#   WIPORT=Wazuh indexer listening port
+#   WIPROTO=Wazuh indexer listening protocol (http/https)
+#   WIUSER=username
+#   WIPASS=password
+# At a minimum, WIUSER and WIPASS must be provided in this file.  Unless otherwise specified, the Wazuh indexer will be reached out to at https://localhost:9200.
 #
-# What it does...
+# SYNTAX
+#   wi-prefix-report [-h] --auth-file AUTH_FILE [--prefix PREFIX] [--prefix-file PREFIX_FILE] [--PREFIX-FILE PREFIX_FILE] [--human]
+# 
+# EXAMPLE
+#   wi-prefix-report --auth-file /etc/.siem-auth --human --prefix wazuh-alerts- --prefix wazuh-archives-
+#   Prefix           Indexes  Primary Shards  All Shards  % Total Shards  Primary Shard Space  Total Space  % Total Space
+#   ---------------  -------  --------------  ----------  --------------  -------------------  -----------  -------------
+#   wazuh-alerts-        357             601        1075             87%              2.2 TiB      3.9 TiB            82%
+#   wazuh-archives-       93              93         160             13%            534.0 GiB    896.7 GiB            18%
+#   ------           -------  --------------  ----------  --------------  -------------------  -----------  -------------
+#   TOTAL                450             694        1235            100%              2.7 TiB      4.8 TiB           100%
 #
-# Example call and output...
+# Alternatively, --prefix-rule can be specified that refers to a file containing one prefix per line.
 #
 
 import argparse
 import os
 import re
 from typing import Dict, List, Optional
-
 from opensearchpy import OpenSearch
 from opensearchpy.connection import RequestsHttpConnection
-
 
 SIZE_RE = re.compile(r"^\s*([0-9]*\.?[0-9]+)\s*([kmgtp]?b)?\s*$", re.IGNORECASE)
 UNIT_MULT = {
@@ -45,7 +60,7 @@ UNIT_MULT = {
 	"mb": 1024**2,
 	"gb": 1024**3,
 	"tb": 1024**4,
-	"pb": 1024**5,
+	"pb": 1024**5
 }
 
 
