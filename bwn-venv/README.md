@@ -23,7 +23,7 @@ sudo touch /venv/bwn/requirements.txt
 
 ### 3. If step 2 fails...
 
-Research how to add Python3 virtual environment support for your specific Linux distro and version.  Do what is necessary to add it, and then repeat step 2.
+Research how to add Python 3 virtual environment support for your specific Linux distro and version.  Do what is necessary to add it, and then repeat step 2.
 
 ### 4. When installing a new BWN Python script, ensure its dependencies are met and up-to-date.
 #### Search in the top of the script for a list of dependencies under "# This script requires at least the following lines to be present in /venv/bwn/requirements.txt:", and add/replace lines in that file as needed.  For example, you might need to add:
