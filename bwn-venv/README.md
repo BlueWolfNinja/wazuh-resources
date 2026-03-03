@@ -36,4 +36,4 @@ python-dateutil>=2.0.0,<3.0.0
 ```
 sudo /venv/bwn/bin/pip install -r /venv/bwn/requirements.txt
 ```
-You may wish to keep this virtual environment up-to-date by adding the above command to your standard Linux update procedure.
+You may also wish to keep this virtual environment up-to-date by adding the above command to your standard Linux update procedure.
