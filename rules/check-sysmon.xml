@@ -1,0 +1,50 @@
+<!--
+These rules are designed to work with check-sysmon-lite.ps1 as presented in this article:
+--link--
+-->
+
+<group name="check-sysmon,">
+
+  <rule id="119550" level="0">
+      <decoded_as>json</decoded_as>
+      <field name="check-sysmon.version">\.+</field>
+      <description>check-sysmon event</description>
+      <options>no_full_log</options>
+  </rule>
+
+  <rule id="119555" level="10">
+      <if_sid>119550</if_sid>
+      <field name="check-sysmon.version">$0$</field>
+      <description>Sysmon is missing</description>
+      <options>no_full_log</options>
+  </rule>
+
+  <rule id="119560" level="3">
+      <if_sid>119550</if_sid>
+      <field name="check-sysmon.reload_attempted">^false$</field>
+      <description>Sysmon config already up-to-date</description>
+      <options>no_full_log</options>
+  </rule>
+
+  <rule id="119565" level="0">
+      <if_sid>119550</if_sid>
+      <field name="check-sysmon.reload_attempted">^true$</field>
+      <description>Sysmon config reload attempted</description>
+      <options>no_full_log</options>
+  </rule>
+
+  <rule id="119570" level="10">
+      <if_sid>119565</if_sid>
+      <field name="check-sysmon.reload_succeeded">^false$</field>
+      <description>Sysmon config reload failed</description>
+      <options>no_full_log</options>
+  </rule>
+
+  <rule id="119575" level="3">
+      <if_sid>119565</if_sid>
+      <field name="check-sysmon.reload_succeeded">^true$</field>
+      <description>Sysmon config reload succeeded</description>
+      <options>no_full_log</options>
+  </rule>
+
+</group>
