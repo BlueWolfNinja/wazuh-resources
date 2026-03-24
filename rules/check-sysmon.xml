@@ -14,7 +14,7 @@ These rules are designed to work with check-sysmon-lite.ps1 as presented in this
 
   <rule id="119555" level="10">
       <if_sid>119550</if_sid>
-      <field name="check-sysmon.version">$0$</field>
+      <field name="check-sysmon.version">^0$</field>
       <description>Sysmon is missing</description>
       <options>no_full_log</options>
   </rule>
