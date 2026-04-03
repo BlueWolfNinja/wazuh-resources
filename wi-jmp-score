@@ -1,0 +1,320 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+#
+# wi-jmp-score (Wazuh indexer JVM memory pressure score tool)
+# by Kevin Branch (@BlueWolfNinja)
+# https://bluewolfninja.com
+#
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Presented in this blog article
+# TBD
+#
+# This generates a score between 0-100 to represent overall memory pressure on a Wazuh indexer node.
+# It factors in both % of heap memory used and % of time spent performing garbage collection.
+#
+# Suggested interpretation of score ranges:
+#
+# 0–24 → OK
+#    Normal operation
+#    Heap and GC both low
+#
+# 25–49 → WARN
+#    Early pressure
+#    Typically:
+#    heap ~75–85% or
+#    GC ~3–8%
+#
+# 50–69 → HIGH
+#    Sustained pressure building
+#    Expect:
+#    increasing GC activity
+#    rising CPU
+#    possible latency impact
+#
+# 70–84 → CRITICAL (approaching failure)
+#    Strong memory pressure
+#    Typically:
+#    heap > 85%
+#    GC > 10%
+#    Action required
+#
+# 85–100 → SEVERE / FAILURE IMMINENT
+#    High probability of:
+#    long GC pauses
+#    query/indexing degradation
+#    node instability
+#
+
+STATE_DIR="${STATE_DIR:-/var/lib/wi-jmp-score}"
+CONNECT_TIMEOUT="${CONNECT_TIMEOUT:-10}"
+MAX_TIME="${MAX_TIME:-30}"
+
+NODE=""
+AUTH_FILE=""
+DEBUG=0
+INSECURE=0
+
+log() {
+	printf '%s\n' "$*" >&2
+}
+
+usage() {
+	cat >&2 <<'EOF'
+Usage:
+	wi-jmp-score [--node <node_name>] --auth-file <path> [--debug] [--insecure]
+
+Options:
+	--node			Name of the single node to check; if omitted, read from /etc/wazuh-indexer/opensearch.yml
+	--auth-file		File containing WIPROTO, WIHOST, WIPORT, WIUSER, WIPASS
+	--debug			Print detailed output for the node, followed by the numeric score on the next line
+	--insecure		Disable TLS verification (passes -k to curl)
+EOF
+	exit 1
+}
+
+require_cmd() {
+	command -v "$1" >/dev/null 2>&1 || {
+		log "ERROR: missing required command: $1"
+		exit 1
+	}
+}
+
+cleanup() {
+	[[ -n "${TMP_CURRENT:-}" && -f "${TMP_CURRENT:-}" ]] && rm -f "$TMP_CURRENT"
+	[[ -n "${TMP_OUTPUT:-}" && -f "${TMP_OUTPUT:-}" ]] && rm -f "$TMP_OUTPUT"
+}
+trap cleanup EXIT
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		--node)
+			shift
+			[[ $# -gt 0 ]] || usage
+			NODE="$1"
+			;;
+		--auth-file)
+			shift
+			[[ $# -gt 0 ]] || usage
+			AUTH_FILE="$1"
+			;;
+		--debug)
+			DEBUG=1
+			;;
+		--insecure)
+			INSECURE=1
+			;;
+		*)
+			usage
+			;;
+	esac
+	shift
+done
+
+[[ -n "$AUTH_FILE" ]] || usage
+[[ -f "$AUTH_FILE" ]] || {
+	log "ERROR: auth file not found: $AUTH_FILE"
+	exit 1
+}
+
+require_cmd curl
+require_cmd jq
+
+# shellcheck disable=SC1090
+source "$AUTH_FILE"
+
+: "${WIPROTO:?missing WIPROTO in auth file}"
+: "${WIHOST:?missing WIHOST in auth file}"
+: "${WIPORT:?missing WIPORT in auth file}"
+: "${WIUSER:?missing WIUSER in auth file}"
+: "${WIPASS:?missing WIPASS in auth file}"
+
+if [[ -z "$NODE" ]]; then
+	[[ -r /etc/wazuh-indexer/opensearch.yml ]] || {
+		log "ERROR: --node not specified and /etc/wazuh-indexer/opensearch.yml is not readable"
+		exit 1
+	}
+
+	NODE="$(
+		sed -n 's/^[[:space:]]*node\.name:[[:space:]]*"\([^"]*\)".*$/\1/p' /etc/wazuh-indexer/opensearch.yml | head -n 1
+	)"
+
+	if [[ -z "$NODE" ]]; then
+		NODE="$(
+			sed -n "s/^[[:space:]]*node\.name:[[:space:]]*'\([^']*\)'.*$/\1/p" /etc/wazuh-indexer/opensearch.yml | head -n 1
+		)"
+	fi
+
+	if [[ -z "$NODE" ]]; then
+		NODE="$(
+			sed -n 's/^[[:space:]]*node\.name:[[:space:]]*\([^[:space:]#][^#]*\)[[:space:]]*$/\1/p' /etc/wazuh-indexer/opensearch.yml | head -n 1 | sed 's/[[:space:]]*$//'
+		)"
+	fi
+
+	[[ -n "$NODE" ]] || {
+		log "ERROR: could not determine node.name from /etc/wazuh-indexer/opensearch.yml"
+		exit 1
+	}
+fi
+
+INDEXER_URL="${WIPROTO}://${WIHOST}:${WIPORT}"
+
+mkdir -p "$STATE_DIR"
+chmod 700 "$STATE_DIR"
+
+NODE_SAFE="$(printf '%s' "$NODE" | tr '/[:space:]' '__')"
+STATE_FILE="${STATE_DIR}/jmps_state_${NODE_SAFE}.json"
+
+TMP_CURRENT="$(mktemp)"
+TMP_OUTPUT="$(mktemp)"
+
+# Build curl options
+CURL_OPTS=(
+	-fsS
+	--connect-timeout "$CONNECT_TIMEOUT"
+	--max-time "$MAX_TIME"
+	-u "$WIUSER:$WIPASS"
+)
+
+if [[ "$INSECURE" -eq 1 ]]; then
+	CURL_OPTS+=(-k)
+fi
+
+curl "${CURL_OPTS[@]}" \
+	"$INDEXER_URL/_nodes/stats/jvm?filter_path=nodes.*.timestamp,nodes.*.name,nodes.*.jvm.mem.heap_used_percent,nodes.*.jvm.gc.collectors.young.collection_time_in_millis,nodes.*.jvm.gc.collectors.old.collection_time_in_millis" \
+	> "$TMP_CURRENT"
+
+jq -c --arg node "$NODE" '
+{
+	nodes: (
+		.nodes
+		| to_entries
+		| map(select(.value.name == $node))
+		| map({
+			key: .key,
+			value: {
+				name: .value.name,
+				ts_ms: (.value.timestamp // 0),
+				heap_pct: (.value.jvm.mem.heap_used_percent // 0),
+				young_gc_ms: (.value.jvm.gc.collectors.young.collection_time_in_millis // 0),
+				old_gc_ms: (.value.jvm.gc.collectors.old.collection_time_in_millis // 0)
+			}
+		})
+		| from_entries
+	)
+}
+' "$TMP_CURRENT" > "$TMP_OUTPUT"
+
+CURRENT_NODE_COUNT="$(jq '.nodes | length' "$TMP_OUTPUT")"
+if [[ "$CURRENT_NODE_COUNT" -eq 0 ]]; then
+	log "ERROR: node not found in API response: $NODE"
+	exit 1
+fi
+
+if [[ ! -s "$STATE_FILE" ]]; then
+	mv "$TMP_OUTPUT" "$STATE_FILE"
+	chmod 600 "$STATE_FILE"
+	if [[ "$DEBUG" -eq 1 ]]; then
+		printf 'NODE=%s\tSTATE=INITIALIZED\tSTATUS=UNKNOWN\tHEAP_PCT=NA\tGC_PCT=NA\tJMPS=0\tDETAIL="first run; no previous sample yet"\n' "$NODE"
+		printf '0\n'
+	else
+		printf '0\n'
+	fi
+	exit 0
+fi
+
+RESULT="$(
+jq -r '
+	def clamp01:
+		if . < 0 then 0
+		elif . > 1 then 1
+		else .
+		end;
+
+	def heap_score($heap):
+		((((($heap - 70) / 20)) | clamp01) * 100);
+
+	def gc_score($gc):
+		((((($gc - 3) / 12)) | clamp01) * 100);
+
+	def round2:
+		(. * 100 | round) / 100;
+
+	input as $prev
+	| . as $curr
+	| ($curr.nodes | to_entries | .[0]) as $c
+	| $prev.nodes[$c.key] as $p
+	| if ($p == null) then
+		{
+			node_id: $c.key,
+			name: $c.value.name,
+			state: "NEW_NODE",
+			heap_pct: $c.value.heap_pct,
+			gc_pct: null,
+			jmps: 0,
+			status: "UNKNOWN",
+			detail: "node missing from previous sample"
+		}
+	else
+		($c.value.ts_ms - $p.ts_ms) as $dt
+		| ($c.value.young_gc_ms - $p.young_gc_ms) as $dy
+		| ($c.value.old_gc_ms - $p.old_gc_ms) as $do
+		| if ($dt <= 0 or $dy < 0 or $do < 0) then
+			{
+				node_id: $c.key,
+				name: $c.value.name,
+				state: "RESET",
+				heap_pct: $c.value.heap_pct,
+				gc_pct: null,
+				jmps: 0,
+				status: "UNKNOWN",
+				detail: "counter or timestamp reset detected"
+			}
+		else
+			((($dy + $do) / $dt) * 100) as $gc_pct
+			| (heap_score($c.value.heap_pct)) as $heap_score_val
+			| (gc_score($gc_pct)) as $gc_score_val
+			| ((0.6 * $gc_score_val) + (0.4 * $heap_score_val)) as $jmps_raw
+			| (
+				if ($c.value.heap_pct >= 90 or $gc_pct >= 15 or ($c.value.heap_pct >= 85 and $gc_pct >= 10)) then 100
+				else $jmps_raw
+				end
+			) as $jmps
+			| {
+				node_id: $c.key,
+				name: $c.value.name,
+				state: "OK",
+				heap_pct: ($c.value.heap_pct | round2),
+				gc_pct: ($gc_pct | round2),
+				jmps: ($jmps | floor),
+				status:
+					(if $jmps >= 75 then "CRIT"
+					elif $jmps >= 55 then "HIGH"
+					elif $jmps >= 35 then "WARN"
+					else "OK"
+					end),
+				detail: (
+					"dt_ms=\($dt)"
+					+ " young_gc_delta_ms=\($dy)"
+					+ " old_gc_delta_ms=\($do)"
+					+ " heap_score=\($heap_score_val|round2)"
+					+ " gc_score=\($gc_score_val|round2)"
+				)
+			}
+		end
+	end
+	| @json
+' "$TMP_OUTPUT" "$STATE_FILE"
+)"
+
+mv "$TMP_OUTPUT" "$STATE_FILE"
+chmod 600 "$STATE_FILE"
+
+if [[ "$DEBUG" -eq 1 ]]; then
+	printf '%s\n' "$RESULT" | jq -r '"NODE=\(.name)\tNODE_ID=\(.node_id)\tSTATE=\(.state)\tSTATUS=\(.status)\tHEAP_PCT=\(.heap_pct // "NA")\tGC_PCT=\(.gc_pct // "NA")\tJMPS=\(.jmps)\tDETAIL=\"\(.detail)\""'
+	printf '%s\n' "$RESULT" | jq -r '.jmps'
+else
+	printf '%s\n' "$RESULT" | jq -r '.jmps'
+fi
