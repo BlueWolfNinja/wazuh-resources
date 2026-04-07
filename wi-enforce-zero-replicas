@@ -2,7 +2,7 @@
 set -euo pipefail
 
 #
-# wi-enforce-zero-replicas (Wazuh indexer JVM memory pressure score tool)
+# wi-enforce-zero-replicas (Wazuh zero-replica enforcer for single-node indexer clusters)
 # by Kevin Branch (@BlueWolfNinja)
 # https://bluewolfninja.com
 #
