@@ -12,11 +12,18 @@ set -euo pipefail
 # Presented in this blog article
 # TBD
 #
+# Replicas are impossible on and irrelevant to single-node indexer clusters, but if enabled anywhere, they
+# will cause the cluster state to be yellow instead of green.  In some cases this can be operationally
+# disruptive, and in all cases it is at least costmetically irritating.
+#
+# You can use templates and/or cluster settings to disable most new indexes from being assigned a non-zero
+# replica setting, but with certain plugins, none of these techniques can override a non-zero replica
+# setting being assigned.  The only option is to periodically check for non-compliant indexes and correct
+# their replica setting.
+#
 # Run this script on a single-node Wazuh indexer cluster, and it will check all indexes to see if
 # any of them have a number_of_replicas setting other than 0.  If it finds any, it corrects that setting
-# to zero.  Replicas as impossible/irrelevant to single-node indexer clusters but if enabled anywhere, they
-# can cause the cluster state to be yellow instead of green, which in some cases can be disruptive, and is
-# at least costmetically irritating.
+# to zero.  Resource use is extreemly low, so it should be safe to run this frequently from cron.
 #
 
 OS_HOST="127.0.0.1"
