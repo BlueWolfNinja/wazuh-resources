@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+#
+# wi-enforce-zero-replicas (Wazuh indexer JVM memory pressure score tool)
+# by Kevin Branch (@BlueWolfNinja)
+# https://bluewolfninja.com
+#
+# Authoritatively available from:
+# https://github.com/BlueWolfNinja/wazuh-resources
+#
+# Presented in this blog article
+# TBD
+#
+# Run this script on a single-node Wazuh indexer cluster, and it will check all indexes to see if
+# any of them have a number_of_replicas setting other than 0.  If it finds any, it corrects that setting
+# to zero.  Replicas as impossible/irrelevant to single-node indexer clusters but if enabled anywhere, they
+# can cause the cluster state to be yellow instead of green, which in some cases can be disruptive, and is
+# at least costmetically irritating.
+#
+
+OS_HOST="127.0.0.1"
+OS_PORT="9200"
+OS_URL=""
+CA="/etc/wazuh-indexer/certs/root-ca.pem"
+CERT="/etc/wazuh-indexer/certs/admin.pem"
+KEY="/etc/wazuh-indexer/certs/admin-key.pem"
+LOG_FILE="/var/log/fix-system-index-replicas.log"
+DEBUG=0
+INSECURE=0
+
+PAYLOAD='{
+  "index": {
+    "number_of_replicas": 0
+  }
+}'
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --debug)
+      DEBUG=1
+      shift
+      ;;
+    --host)
+      OS_HOST="$2"
+      shift 2
+      ;;
+    --port)
+      OS_PORT="$2"
+      shift 2
+      ;;
+    --insecure)
+      INSECURE=1
+      shift
+      ;;
+    *)
+      echo "Usage: $0 [--debug] [--host HOST] [--port PORT] [--insecure]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+OS_URL="https://$OS_HOST:$OS_PORT"
+
+log_msg() {
+  local msg
+  msg="[$(date '+%F %T')] $1"
+
+  if [ "$DEBUG" -eq 1 ]; then
+    echo "$msg"
+  else
+    echo "$msg" >> "$LOG_FILE"
+  fi
+}
+
+CURL_ARGS=(
+  --silent
+  --show-error
+  --fail
+  --cert "$CERT"
+  --key "$KEY"
+)
+
+if [ "$INSECURE" -eq 1 ]; then
+  CURL_ARGS+=(--insecure)
+else
+  CURL_ARGS+=(--cacert "$CA")
+fi
+
+log_msg "Starting replica fix"
+
+settings=$(curl "${CURL_ARGS[@]}" \
+  "$OS_URL/_settings/index.number_of_replicas?flat_settings=true&expand_wildcards=open,hidden,closed" 2>&1) || {
+    log_msg "Failed to read settings for all indexes: $settings"
+    exit 1
+  }
+
+noncompliant_indexes=$(
+  printf '%s\n' "$settings" | jq -r '
+    to_entries[]
+    | .key as $index
+    | .value.settings as $s
+    | ($s["index.number_of_replicas"] // "") as $replicas
+    | select($replicas != "0")
+    | $index
+  '
+) || {
+  log_msg "Failed to parse settings response"
+  exit 1
+}
+
+if [ -z "$noncompliant_indexes" ]; then
+  log_msg "No noncompliant indexes found"
+  log_msg "Finished replica fix"
+  exit 0
+fi
+
+while IFS= read -r index; do
+  [ -n "$index" ] || continue
+
+  response=$(curl "${CURL_ARGS[@]}" \
+    -X PUT "$OS_URL/$index/_settings" \
+    -H 'Content-Type: application/json' \
+    -d "$PAYLOAD" 2>&1) || {
+      log_msg "Failed for $index: $response"
+      continue
+    }
+
+  log_msg "Reset replica settings for $index: $response"
+done <<< "$noncompliant_indexes"
+
+log_msg "Finished replica fix"
