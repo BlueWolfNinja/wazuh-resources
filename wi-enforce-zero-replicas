@@ -32,7 +32,7 @@ OS_URL=""
 CA="/etc/wazuh-indexer/certs/root-ca.pem"
 CERT="/etc/wazuh-indexer/certs/admin.pem"
 KEY="/etc/wazuh-indexer/certs/admin-key.pem"
-LOG_FILE="/var/log/fix-system-index-replicas.log"
+LOG_FILE="/var/log/wi-enforce-zero-replicas"
 DEBUG=0
 INSECURE=0
 
